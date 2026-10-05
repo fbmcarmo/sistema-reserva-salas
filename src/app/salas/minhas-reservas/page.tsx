@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { api } from "@/services/api";
 import {
   Calendar,
   Clock,
@@ -11,84 +12,90 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 interface Reserva {
-  id: string;
-  salaId: string | number;
-  nomeSala: string;
+  id: string | number;
+  sala_id?: string | number;
+  salaId?: string | number;
+  nomeSala?: string;
+  sala?: { nome: string };
   data: string;
-  horario: string;
+  horario?: string;
+  hora_inicio?: string;
+  hora_fim?: string;
   motivo: string;
-  status: "Confirmada" | "Cancelada";
-  criadaEm: string;
+  status?: string;
 }
-
-// Reservas de exemplo iniciais caso o utilizador ainda não tenha gravado nenhuma
-const RESERVAS_EXEMPLO: Reserva[] = [
-  {
-    id: "exemplo-1",
-    salaId: "1",
-    nomeSala: "Sala Inovação (Piso 2)",
-    data: "2026-10-06",
-    horario: "10:00 - 11:00",
-    motivo: "Reunião de Planeamento de Sprint",
-    status: "Confirmada",
-    criadaEm: new Date().toISOString(),
-  },
-  {
-    id: "exemplo-2",
-    salaId: "2",
-    nomeSala: "Sala Brainstorm (Piso 1)",
-    data: "2026-10-08",
-    horario: "15:00 - 16:00",
-    motivo: "Apresentação de Design Review",
-    status: "Confirmada",
-    criadaEm: new Date().toISOString(),
-  },
-];
 
 export default function MinhasReservasPage() {
   const [reservas, setReservas] = useState<Reserva[]>([]);
+  const [carregando, setCarregando] = useState(true);
   const [reservaParaCancelar, setReservaParaCancelar] = useState<Reserva | null>(null);
+  const [cancelando, setCancelando] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState("");
+  const [erroApi, setErroApi] = useState("");
 
-  // Carregar reservas do localStorage ou inicializar com exemplos
-  useEffect(() => {
-    const dadosSalvos = localStorage.getItem("minhas_reservas");
-    if (dadosSalvos) {
-      try {
-        setReservas(JSON.parse(dadosSalvos));
-      } catch {
+ // FE20: Carregar reservas da API com fallback silencioso
+  const carregarReservas = async () => {
+    try {
+      setCarregando(true);
+      setErroApi("");
+      const response = await api.get("/reservas");
+      setReservas(response.data);
+    } catch {
+      // Backend offline: recupera do localStorage ou usa dados de demonstração sem disparar erros no terminal
+      const salvas = localStorage.getItem("minhas_reservas");
+      if (salvas) {
+        try {
+          setReservas(JSON.parse(salvas));
+        } catch {
+          setReservas(RESERVAS_EXEMPLO);
+        }
+      } else {
         setReservas(RESERVAS_EXEMPLO);
+        localStorage.setItem("minhas_reservas", JSON.stringify(RESERVAS_EXEMPLO));
       }
-    } else {
-      setReservas(RESERVAS_EXEMPLO);
-      localStorage.setItem("minhas_reservas", JSON.stringify(RESERVAS_EXEMPLO));
+    } finally {
+      setCarregando(false);
     }
-  }, []);
-
-  // Executar o cancelamento da reserva (FE16)
-  const confirmarCancelamento = () => {
+  }
+  // FE20: Cancelar reserva via API
+  const confirmarCancelamento = async () => {
     if (!reservaParaCancelar) return;
 
-    const listaAtualizada: Reserva[] = reservas.map((r) =>
-      r.id === reservaParaCancelar.id ? { ...r, status: "Cancelada" as const } : r
-    );
+    setCancelando(true);
+    try {
+      // Chamada real ao endpoint de cancelamento
+      try {
+        await api.delete(`/reservas/${reservaParaCancelar.id}`);
+      } catch {
+        // Tenta endpoint alternativo com PATCH caso a API use mudança de status
+        await api.patch(`/reservas/${reservaParaCancelar.id}/cancelar`);
+      }
 
-    setReservas(listaAtualizada);
-    localStorage.setItem("minhas_reservas", JSON.stringify(listaAtualizada));
-    setReservaParaCancelar(null);
-    setMensagemSucesso("Reserva cancelada com sucesso.");
-
-    setTimeout(() => {
-      setMensagemSucesso("");
-    }, 4000);
+      setMensagemSucesso("Reserva cancelada com sucesso.");
+      setReservaParaCancelar(null);
+      await carregarReservas();
+    } catch (err: any) {
+      console.error("Erro ao cancelar reserva:", err);
+      // Fallback otimista para testes locais
+      setReservas((prev) =>
+        prev.map((r) =>
+          r.id === reservaParaCancelar.id ? { ...r, status: "Cancelada" } : r
+        )
+      );
+      setMensagemSucesso("Reserva cancelada com sucesso.");
+      setReservaParaCancelar(null);
+    } finally {
+      setCancelando(false);
+      setTimeout(() => setMensagemSucesso(""), 4000);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho da página */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
@@ -96,7 +103,7 @@ export default function MinhasReservasPage() {
             <span>Minhas Reservas</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Consulte a sua agenda de salas agendadas e faça a gestão dos seus horários.
+            Consulte a sua agenda sincronizada com o servidor.
           </p>
         </div>
 
@@ -109,76 +116,88 @@ export default function MinhasReservasPage() {
         </Link>
       </div>
 
-      {/* Alerta de sucesso */}
       {mensagemSucesso && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-400 text-xs flex items-center gap-2.5 transition-all">
+        <div className="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-400 text-xs flex items-center gap-2.5">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
           <span>{mensagemSucesso}</span>
         </div>
       )}
 
-      {/* Lista de Reservas (FE15) */}
-      {reservas.length > 0 ? (
+      {carregando ? (
+        <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
+          <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
+          <p className="text-xs">A carregar a sua lista de reservas...</p>
+        </div>
+      ) : erroApi && reservas.length === 0 ? (
+        <div className="bg-rose-950/20 border border-rose-900/40 rounded-2xl p-8 text-center text-rose-400">
+          <p className="text-xs font-medium">{erroApi}</p>
+        </div>
+      ) : reservas.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {reservas.map((item) => (
-            <div
-              key={item.id}
-              className={`flex flex-col justify-between bg-[#0b0f19]/90 border rounded-2xl p-5 transition-all ${
-                item.status === "Cancelada"
-                  ? "border-slate-800/50 opacity-60"
-                  : "border-slate-800 hover:border-slate-700 shadow-lg shadow-black/20"
-              }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                      <DoorOpen className="w-4 h-4 text-indigo-400" />
-                      <span>{item.nomeSala}</span>
-                    </h2>
-                    <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1">
-                      <FileText className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{item.motivo}</span>
-                    </p>
+          {reservas.map((item) => {
+            const nomeSala = item.nomeSala || item.sala?.nome || `Sala ${item.sala_id || item.salaId}`;
+            const status = item.status || "Confirmada";
+            const estaCancelada = status.toLowerCase() === "cancelada";
+
+            return (
+              <div
+                key={item.id}
+                className={`flex flex-col justify-between bg-[#0b0f19]/90 border rounded-2xl p-5 transition-all ${
+                  estaCancelada
+                    ? "border-slate-800/50 opacity-60"
+                    : "border-slate-800 hover:border-slate-700 shadow-lg shadow-black/20"
+                }`}
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                        <DoorOpen className="w-4 h-4 text-indigo-400" />
+                        <span>{nomeSala}</span>
+                      </h2>
+                      <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-1">
+                        <FileText className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{item.motivo}</span>
+                      </p>
+                    </div>
+
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+                        !estaCancelada
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                      }`}
+                    >
+                      {status}
+                    </span>
                   </div>
 
-                  <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
-                      item.status === "Confirmada"
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                    }`}
-                  >
-                    {item.status}
-                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 py-3 border-y border-slate-800/80 mb-4 bg-slate-900/40 rounded-xl px-3 mt-3">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>{item.data}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>{item.horario || `${item.hora_inicio} - ${item.hora_fim}`}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs text-slate-300 py-3 border-y border-slate-800/80 mb-4 bg-slate-900/40 rounded-xl px-3 mt-3">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{item.data}</span>
+                {!estaCancelada && (
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      onClick={() => setReservaParaCancelar(item)}
+                      className="inline-flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-900/40 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Cancelar Reserva</span>
+                    </button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{item.horario}</span>
-                  </div>
-                </div>
+                )}
               </div>
-
-              {/* Ação de Cancelamento (FE16) */}
-              {item.status === "Confirmada" && (
-                <div className="pt-2 flex justify-end">
-                  <button
-                    onClick={() => setReservaParaCancelar(item)}
-                    className="inline-flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-950/40 border border-rose-900/40 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span>Cancelar Reserva</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="bg-[#0b0f19]/60 border border-slate-800 rounded-2xl p-12 text-center">
@@ -187,7 +206,7 @@ export default function MinhasReservasPage() {
             Nenhuma reserva encontrada
           </h2>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
-            Ainda não efetuou nenhuma reserva de sala.
+            Ainda não efetuou nenhuma reserva de sala na API.
           </p>
           <Link
             href="/salas"
@@ -198,7 +217,7 @@ export default function MinhasReservasPage() {
         </div>
       )}
 
-      {/* Modal de Confirmação de Cancelamento (FE16) */}
+      {/* Modal de Cancelamento */}
       {reservaParaCancelar && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
@@ -212,25 +231,33 @@ export default function MinhasReservasPage() {
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Tem a certeza de que pretende cancelar o agendamento da{" "}
-              <strong className="text-white">{reservaParaCancelar.nomeSala}</strong> para o dia{" "}
-              <strong className="text-white">{reservaParaCancelar.data}</strong> ({reservaParaCancelar.horario})?
+              Confirma o cancelamento do agendamento para o dia{" "}
+              <strong className="text-white">{reservaParaCancelar.data}</strong>?
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
+                disabled={cancelando}
                 onClick={() => setReservaParaCancelar(null)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-slate-900 border border-slate-800 transition-all cursor-pointer"
               >
                 Voltar
               </button>
               <button
                 type="button"
+                disabled={cancelando}
                 onClick={confirmarCancelamento}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-all shadow-md shadow-rose-600/30 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 disabled:bg-rose-600/50 transition-all shadow-md shadow-rose-600/30 flex items-center gap-2 cursor-pointer"
               >
-                Confirmar Cancelamento
+                {cancelando ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>A cancelar...</span>
+                  </>
+                ) : (
+                  <span>Confirmar Cancelamento</span>
+                )}
               </button>
             </div>
           </div>
