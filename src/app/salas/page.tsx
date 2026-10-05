@@ -1,67 +1,51 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { RoomCard, Sala } from "@/components/RoomCard";
 import { RoomFilters } from "@/components/RoomFilters";
-import { DoorOpen } from "lucide-react";
-
-const SALAS_INICIAIS: Sala[] = [
-  {
-    id: 1,
-    nome: "Sala Inovação",
-    descricao: "Espaço espaçoso preparado para reuniões executivas e apresentações estratégicas.",
-    capacidade: 12,
-    localizacao: "Piso 2 — Ala Norte",
-    recursos: ["Wi-Fi", "Projetor", "Videoconferência", "Quadro Branco"],
-    disponivel: true,
-  },
-  {
-    id: 2,
-    nome: "Sala Brainstorm",
-    descricao: "Ambiente descontraído concebido para sessões de cocriação e planeamento de equipa.",
-    capacidade: 6,
-    localizacao: "Piso 1 — Ala Criativa",
-    recursos: ["Wi-Fi", "TV", "Quadro Branco"],
-    disponivel: true,
-  },
-  {
-    id: 3,
-    nome: "Auditório Central",
-    descricao: "Infraestrutura ampla com isolamento acústico e sistema audiovisual para apresentações gerais.",
-    capacidade: 30,
-    localizacao: "Piso Térreo",
-    recursos: ["Wi-Fi", "Projetor", "Videoconferência"],
-    disponivel: false,
-  },
-  {
-    id: 4,
-    nome: "Sala Focus",
-    descricao: "Cabine privada para chamadas individuais, entrevistas ou reuniões rápidas de alinhamento.",
-    capacidade: 4,
-    localizacao: "Piso 2 — Ala Sul",
-    recursos: ["Wi-Fi", "TV"],
-    disponivel: true,
-  },
-];
+import { DoorOpen, Loader2 } from "lucide-react";
+import { api } from "@/services/api";
 
 export default function SalasPage() {
-  const [salas] = useState<Sala[]>(SALAS_INICIAIS);
+  const [salas, setSalas] = useState<Sala[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroApi, setErroApi] = useState("");
+
   const [busca, setBusca] = useState("");
   const [capacidadeMinima, setCapacidadeMinima] = useState(0);
   const [recursoSelecionado, setRecursoSelecionado] = useState("Todos");
 
-  // Filtro computado em tempo real
+  // FE19: Carregar lista de salas da API
+  useEffect(() => {
+    async function carregarSalas() {
+      try {
+        setCarregando(true);
+        setErroApi("");
+        const response = await api.get("/salas");
+        setSalas(response.data);
+      } catch (err: any) {
+        console.error("Erro ao carregar salas:", err);
+        setErroApi("Não foi possível carregar a lista de salas do servidor.");
+      } finally {
+        setCarregando(false);
+      }
+    }
+
+    carregarSalas();
+  }, []);
+
+  // Filtragem local sobre os dados vindos da API
   const salasFiltradas = useMemo(() => {
     return salas.filter((sala) => {
       const matchBusca =
-        sala.nome.toLowerCase().includes(busca.toLowerCase()) ||
+        sala.nome?.toLowerCase().includes(busca.toLowerCase()) ||
         sala.localizacao?.toLowerCase().includes(busca.toLowerCase());
 
-      const matchCapacidade = sala.capacidade >= capacidadeMinima;
+      const matchCapacidade = (sala.capacidade || 0) >= capacidadeMinima;
 
       const matchRecurso =
         recursoSelecionado === "Todos" ||
-        sala.recursos.some((r) =>
+        sala.recursos?.some((r) =>
           r.toLowerCase().includes(recursoSelecionado.toLowerCase())
         );
 
@@ -77,7 +61,6 @@ export default function SalasPage() {
 
   return (
     <div className="space-y-6">
-      {/* Título de abertura */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
           <DoorOpen className="w-6 h-6 text-indigo-400" />
@@ -88,7 +71,6 @@ export default function SalasPage() {
         </p>
       </div>
 
-      {/* Componente de Filtro (FE12) */}
       <RoomFilters
         busca={busca}
         setBusca={setBusca}
@@ -99,8 +81,17 @@ export default function SalasPage() {
         onLimparFiltros={limparFiltros}
       />
 
-      {/* Grelha de Cartões (FE10) */}
-      {salasFiltradas.length > 0 ? (
+      {/* Estado de Carregamento */}
+      {carregando ? (
+        <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
+          <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
+          <p className="text-xs">A carregar salas disponíveis...</p>
+        </div>
+      ) : erroApi ? (
+        <div className="bg-rose-950/20 border border-rose-900/40 rounded-2xl p-8 text-center text-rose-400">
+          <p className="text-xs font-medium">{erroApi}</p>
+        </div>
+      ) : salasFiltradas.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {salasFiltradas.map((sala) => (
             <RoomCard key={sala.id} sala={sala} />
