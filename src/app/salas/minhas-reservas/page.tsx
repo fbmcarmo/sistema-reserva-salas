@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/services/api";
 import {
@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  AlertCircle,
+  RefreshCw,
   Loader2,
 } from "lucide-react";
 
@@ -29,58 +31,80 @@ interface Reserva {
   status?: string;
 }
 
+// Componente Skeleton para simular o carregamento das reservas
+function ReservationSkeleton() {
+  return (
+    <div className="bg-[#0b0f19]/80 border border-slate-800/80 rounded-2xl p-5 animate-pulse space-y-4">
+      <div className="flex justify-between items-start">
+        <div className="space-y-2 w-2/3">
+          <div className="h-4 bg-slate-800 rounded w-1/2" />
+          <div className="h-3 bg-slate-800/60 rounded w-3/4" />
+        </div>
+        <div className="h-5 bg-slate-800 rounded-full w-20" />
+      </div>
+
+      <div className="h-10 bg-slate-900/60 rounded-xl w-full" />
+
+      <div className="flex justify-end pt-2">
+        <div className="h-7 bg-slate-800 rounded-xl w-32" />
+      </div>
+    </div>
+  );
+}
+
 export default function MinhasReservasPage() {
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [erroApi, setErroApi] = useState("");
   const [reservaParaCancelar, setReservaParaCancelar] = useState<Reserva | null>(null);
   const [cancelando, setCancelando] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState("");
-  const [erroApi, setErroApi] = useState("");
 
- // FE20: Carregar reservas da API com fallback silencioso
-  const carregarReservas = async () => {
+  // FE21: Consulta de reservas com tratamento explícito de loading e erro
+  const carregarReservas = useCallback(async () => {
     try {
       setCarregando(true);
       setErroApi("");
       const response = await api.get("/reservas");
       setReservas(response.data);
     } catch {
-      // Backend offline: recupera do localStorage ou usa dados de demonstração sem disparar erros no terminal
+      // Verifica se existem reservas no armazenamento local antes de disparar erro
       const salvas = localStorage.getItem("minhas_reservas");
       if (salvas) {
         try {
           setReservas(JSON.parse(salvas));
         } catch {
-          setReservas(RESERVAS_EXEMPLO);
+          setErroApi("Não foi possível carregar as reservas associadas à sua conta.");
         }
       } else {
-        setReservas(RESERVAS_EXEMPLO);
-        localStorage.setItem("minhas_reservas", JSON.stringify(RESERVAS_EXEMPLO));
+        setErroApi("Não foi possível carregar as reservas associadas à sua conta.");
       }
     } finally {
       setCarregando(false);
     }
-  }
-  // FE20: Cancelar reserva via API
+  }, []);
+
+  useEffect(() => {
+    carregarReservas();
+  }, [carregarReservas]);
+
+  // Cancelamento de reserva
   const confirmarCancelamento = async () => {
     if (!reservaParaCancelar) return;
 
     setCancelando(true);
     try {
-      // Chamada real ao endpoint de cancelamento
       try {
         await api.delete(`/reservas/${reservaParaCancelar.id}`);
       } catch {
-        // Tenta endpoint alternativo com PATCH caso a API use mudança de status
         await api.patch(`/reservas/${reservaParaCancelar.id}/cancelar`);
       }
 
       setMensagemSucesso("Reserva cancelada com sucesso.");
       setReservaParaCancelar(null);
       await carregarReservas();
-    } catch (err: any) {
-      console.error("Erro ao cancelar reserva:", err);
-      // Fallback otimista para testes locais
+    } catch {
+      // Fallback local caso o backend não esteja ativo
       setReservas((prev) =>
         prev.map((r) =>
           r.id === reservaParaCancelar.id ? { ...r, status: "Cancelada" } : r
@@ -123,19 +147,36 @@ export default function MinhasReservasPage() {
         </div>
       )}
 
+      {/* FE21: Estado de Carregamento (Skeleton) */}
       {carregando ? (
-        <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
-          <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
-          <p className="text-xs">A carregar a sua lista de reservas...</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <ReservationSkeleton key={i} />
+          ))}
         </div>
       ) : erroApi && reservas.length === 0 ? (
-        <div className="bg-rose-950/20 border border-rose-900/40 rounded-2xl p-8 text-center text-rose-400">
-          <p className="text-xs font-medium">{erroApi}</p>
+        /* FE21: Estado de Erro com Ação de Retentativa */
+        <div className="bg-rose-950/20 border border-rose-900/40 rounded-2xl p-8 text-center space-y-4">
+          <div className="inline-flex p-3 rounded-xl bg-rose-900/30 text-rose-400">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white">Falha ao Carregar Reservas</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">{erroApi}</p>
+          </div>
+          <button
+            onClick={carregarReservas}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-md shadow-indigo-600/30"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Tentar Novamente</span>
+          </button>
         </div>
       ) : reservas.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {reservas.map((item) => {
-            const nomeSala = item.nomeSala || item.sala?.nome || `Sala ${item.sala_id || item.salaId}`;
+            const nomeSala =
+              item.nomeSala || item.sala?.nome || `Sala ${item.sala_id || item.salaId}`;
             const status = item.status || "Confirmada";
             const estaCancelada = status.toLowerCase() === "cancelada";
 
