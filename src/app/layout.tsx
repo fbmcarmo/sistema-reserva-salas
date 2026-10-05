@@ -1,31 +1,20 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-// 1. Importação do AuthProvider
+import type { Metadata } from "next";
 import { AuthProvider } from "@/contexts/AuthContext";
+import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata = {
-  title: "Reserva de Salas",
-  description: "Sistema de reserva e gestão de salas",
+export const metadata: Metadata = {
+  title: "Suite Seeker - Reserva de Salas",
+  description: "Sistema de reserva e gestão de salas de reunião",
 };
 
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html
-      lang="pt"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        {/* 2. O AuthProvider envolve o {children} */}
+    <html lang="pt-BR">
+      <body className="antialiased min-h-screen bg-background text-foreground">
         <AuthProvider>
           {children}
         </AuthProvider>

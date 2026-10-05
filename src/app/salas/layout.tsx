@@ -17,27 +17,30 @@ export default function SalasLayout({
   const isReservasAtivo = pathname === "/salas/minhas-reservas";
 
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 flex flex-col">
-      {/* Cabeçalho Global */}
-      <header className="border-b border-slate-800/80 bg-[#0b0f19]/80 backdrop-blur-md sticky top-0 z-40 px-6 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans transition-colors">
+      <header className="border-b border-border bg-card/90 backdrop-blur-md sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-6">
           <Link href="/salas" className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center">
-              <Building2 className="w-4 h-4 text-indigo-400" />
+            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Building2 className="w-4 h-4 text-primary" />
             </div>
-            <span className="font-semibold text-sm text-white tracking-tight">
-              Reserva de Salas
-            </span>
+            <div className="flex flex-col">
+              <span className="font-bold text-sm tracking-tight text-foreground leading-none">
+                Reserva de Salas
+              </span>
+              <span className="text-[10px] text-muted-foreground mt-0.5">
+                Reserva de Salas
+              </span>
+            </div>
           </Link>
 
-          {/* Links de navegação interna */}
-          <nav className="hidden sm:flex items-center gap-1.5">
+          <nav className="hidden sm:flex items-center gap-1.5 ml-2">
             <Link
               href="/salas"
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all ${
                 isSalasAtivo
-                  ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/30 font-medium"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900/60"
+                  ? "bg-primary text-primary-foreground font-medium shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
               <DoorOpen className="w-3.5 h-3.5" />
@@ -48,8 +51,8 @@ export default function SalasLayout({
               href="/salas/minhas-reservas"
               className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all ${
                 isReservasAtivo
-                  ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/30 font-medium"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900/60"
+                  ? "bg-primary text-primary-foreground font-medium shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
@@ -60,15 +63,14 @@ export default function SalasLayout({
 
         <div className="flex items-center gap-4">
           {user && (
-            <span className="text-xs text-slate-400 hidden sm:inline">
-              Olá, <strong className="text-white">{user.nome}</strong>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              Olá, <strong className="text-foreground">{user.nome}</strong>
             </span>
           )}
 
-          {/* Botão de Logout */}
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-rose-400 bg-slate-900/60 hover:bg-rose-950/20 border border-slate-800 hover:border-rose-900/40 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive bg-muted/60 hover:bg-destructive/10 border border-border px-3 py-1.5 rounded-lg transition-all cursor-pointer"
             title="Terminar Sessão"
           >
             <LogOut className="h-3.5 w-3.5" />
@@ -77,7 +79,6 @@ export default function SalasLayout({
         </div>
       </header>
 
-      {/* Conteúdo dinâmico */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8">
         {children}
       </main>
