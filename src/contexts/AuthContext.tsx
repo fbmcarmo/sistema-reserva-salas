@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   function logout() {
-    Cookies.remove("token");
+    Cookies.remove("token", { path: "/" });
     localStorage.removeItem("user");
     setUser(null);
     router.push("/login");

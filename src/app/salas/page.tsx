@@ -1,91 +1,128 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { Building2, DoorOpen, CalendarCheck, LogOut, User } from "lucide-react";
+import { useState, useMemo } from "react";
+import { RoomCard, Sala } from "@/components/RoomCard";
+import { RoomFilters } from "@/components/RoomFilters";
+import { DoorOpen } from "lucide-react";
 
-export default function SalasLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-  const { user, logout } = useAuth();
+const SALAS_INICIAIS: Sala[] = [
+  {
+    id: 1,
+    nome: "Sala Inovação",
+    descricao: "Espaço espaçoso preparado para reuniões executivas e apresentações estratégicas.",
+    capacidade: 12,
+    localizacao: "Piso 2 — Ala Norte",
+    recursos: ["Wi-Fi", "Projetor", "Videoconferência", "Quadro Branco"],
+    disponivel: true,
+  },
+  {
+    id: 2,
+    nome: "Sala Brainstorm",
+    descricao: "Ambiente descontraído concebido para sessões de cocriação e planeamento de equipa.",
+    capacidade: 6,
+    localizacao: "Piso 1 — Ala Criativa",
+    recursos: ["Wi-Fi", "TV", "Quadro Branco"],
+    disponivel: true,
+  },
+  {
+    id: 3,
+    nome: "Auditório Central",
+    descricao: "Infraestrutura ampla com isolamento acústico e sistema audiovisual para apresentações gerais.",
+    capacidade: 30,
+    localizacao: "Piso Térreo",
+    recursos: ["Wi-Fi", "Projetor", "Videoconferência"],
+    disponivel: false,
+  },
+  {
+    id: 4,
+    nome: "Sala Focus",
+    descricao: "Cabine privada para chamadas individuais, entrevistas ou reuniões rápidas de alinhamento.",
+    capacidade: 4,
+    localizacao: "Piso 2 — Ala Sul",
+    recursos: ["Wi-Fi", "TV"],
+    disponivel: true,
+  },
+];
 
-  const navLinks = [
-    { href: "/salas", label: "Salas", icon: DoorOpen },
-    { href: "/reservas", label: "Minhas Reservas", icon: CalendarCheck },
-  ];
+export default function SalasPage() {
+  const [salas] = useState<Sala[]>(SALAS_INICIAIS);
+  const [busca, setBusca] = useState("");
+  const [capacidadeMinima, setCapacidadeMinima] = useState(0);
+  const [recursoSelecionado, setRecursoSelecionado] = useState("Todos");
+
+  // Filtro computado em tempo real
+  const salasFiltradas = useMemo(() => {
+    return salas.filter((sala) => {
+      const matchBusca =
+        sala.nome.toLowerCase().includes(busca.toLowerCase()) ||
+        sala.localizacao?.toLowerCase().includes(busca.toLowerCase());
+
+      const matchCapacidade = sala.capacidade >= capacidadeMinima;
+
+      const matchRecurso =
+        recursoSelecionado === "Todos" ||
+        sala.recursos.some((r) =>
+          r.toLowerCase().includes(recursoSelecionado.toLowerCase())
+        );
+
+      return matchBusca && matchCapacidade && matchRecurso;
+    });
+  }, [salas, busca, capacidadeMinima, recursoSelecionado]);
+
+  const limparFiltros = () => {
+    setBusca("");
+    setCapacidadeMinima(0);
+    setRecursoSelecionado("Todos");
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Header Fixo com Efeito Glassmorphism */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-8">
-            <Link href="/salas" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <span className="font-bold text-slate-100 tracking-tight text-lg">
-                Reserva de Salas
-              </span>
-            </Link>
+    <div className="space-y-6">
+      {/* Título de abertura */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+          <DoorOpen className="w-6 h-6 text-indigo-400" />
+          <span>Salas de Reunião</span>
+        </h1>
+        <p className="text-xs text-slate-400 mt-1">
+          Explore os espaços disponíveis e reserve a sala ideal para a sua equipa.
+        </p>
+      </div>
 
-            <nav className="hidden md:flex items-center gap-1">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                const isActive = pathname === link.href;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
-                      isActive
-                        ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/20"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+      {/* Componente de Filtro (FE12) */}
+      <RoomFilters
+        busca={busca}
+        setBusca={setBusca}
+        capacidadeMinima={capacidadeMinima}
+        setCapacidadeMinima={setCapacidadeMinima}
+        recursoSelecionado={recursoSelecionado}
+        setRecursoSelecionado={setRecursoSelecionado}
+        onLimparFiltros={limparFiltros}
+      />
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-slate-300">
-                <User className="h-4 w-4" />
-              </div>
-              <div className="hidden sm:flex flex-col text-left">
-                <span className="text-xs font-semibold text-slate-200 leading-tight">
-                  {user?.nome || "Utilizador"}
-                </span>
-                <span className="text-[10px] text-slate-500">
-                  {user?.email || "utilizador@empresa.com"}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={logout}
-              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-rose-400 bg-slate-900/60 hover:bg-rose-950/20 border border-slate-800 hover:border-rose-900/40 px-3 py-1.5 rounded-lg transition-all"
-              title="Terminar Sessão"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Sair</span>
-            </button>
-          </div>
+      {/* Grelha de Cartões (FE10) */}
+      {salasFiltradas.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {salasFiltradas.map((sala) => (
+            <RoomCard key={sala.id} sala={sala} />
+          ))}
         </div>
-      </header>
-
-      {/* Conteúdo Dinâmico */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+      ) : (
+        <div className="bg-[#0b0f19]/60 border border-slate-800 rounded-2xl p-12 text-center">
+          <DoorOpen className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-sm font-semibold text-white mb-1">
+            Nenhuma sala encontrada
+          </h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
+            Não existem salas que correspondam aos filtros selecionados.
+          </p>
+          <button
+            onClick={limparFiltros}
+            className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-4 cursor-pointer"
+          >
+            Limpar filtros de pesquisa
+          </button>
+        </div>
+      )}
     </div>
   );
 }
