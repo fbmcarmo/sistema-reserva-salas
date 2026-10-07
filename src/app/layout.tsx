@@ -3,7 +3,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Suite Seeker - Reserva de Salas",
+  title: "sala. - Reserva de Salas",
   description: "Sistema de reserva e gestão de salas de reunião",
 };
 
