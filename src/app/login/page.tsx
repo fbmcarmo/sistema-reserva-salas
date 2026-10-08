@@ -25,7 +25,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, senha);
+      await login({ email, senha });
       router.push(redirecionarPara);
     } catch (err: any) {
       setError(

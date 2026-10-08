@@ -1,238 +1,243 @@
 "use client";
 
-import { use, useState } from "react";
+import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
   Users,
+  Wifi,
+  Tv,
+  Presentation,
   Calendar,
   Clock,
   CheckCircle2,
-  MapPin,
+  AlertCircle,
   FileText,
-  ShieldCheck,
-  Check,
-  Loader2,
 } from "lucide-react";
 
-export default function SalaDetalhesPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
+// Horários de funcionamento padrão
+const HORARIOS_DIA = [
+  "08:00 - 09:00",
+  "09:00 - 10:00",
+  "10:00 - 11:00",
+  "11:00 - 12:00",
+  "14:00 - 15:00",
+  "15:00 - 16:00",
+  "16:00 - 17:00",
+  "17:00 - 18:00",
+];
 
-  // Estados do formulário de reserva
-  const [data, setData] = useState("");
-  const [inicio, setInicio] = useState("");
-  const [termino, setTermino] = useState("");
+// Ocupações simuladas para demonstrar a consulta de disponibilidade (FE14)
+const OCUPACOES_MOCK: Record<string, string[]> = {
+  "2026-10-06": ["09:00 - 10:00", "14:00 - 15:00"],
+  "2026-10-07": ["10:00 - 11:00", "16:00 - 17:00", "17:00 - 18:00"],
+};
+
+export default function DetalhesSalaPage() {
+  const params = useParams();
+  const router = useRouter();
+  const salaId = params?.id;
+
+  // Estado do formulário de reserva (FE13)
+  const [dataSelecionada, setDataSelecionada] = useState("2026-10-06");
+  const [horarioSelecionado, setHorarioSelecionado] = useState("");
   const [motivo, setMotivo] = useState("");
-  const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const [erro, setErro] = useState("");
 
-  function handleAgendar(e: React.FormEvent) {
+  // Horários indisponíveis na data escolhida (FE14)
+  const horariosOcupados = OCUPACOES_MOCK[dataSelecionada] || [];
+
+  const handleSubmeterReserva = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setErro("");
 
+    if (!horarioSelecionado) {
+      setErro("Por favor, selecione um horário disponível.");
+      return;
+    }
+
+    // Criar objeto da nova reserva e persistir localmente para o ecrã 'Minhas Reservas' (FE15)
+    const novaReserva = {
+      id: Date.now().toString(),
+      salaId,
+      nomeSala: `Sala Inovação (${salaId})`,
+      data: dataSelecionada,
+      horario: horarioSelecionado,
+      motivo: motivo || "Reunião de Alinhamento",
+      status: "Confirmada",
+      criadaEm: new Date().toISOString(),
+    };
+
+    const reservasSalvas = JSON.parse(localStorage.getItem("minhas_reservas") || "[]");
+    localStorage.setItem("minhas_reservas", JSON.stringify([novaReserva, ...reservasSalvas]));
+
+    setSucesso(true);
     setTimeout(() => {
-      setLoading(false);
-      setSucesso(true);
-    }, 1000);
-  }
+      router.push("/salas/minhas-reservas");
+    }, 1500);
+  };
 
   return (
     <div className="space-y-6">
-      {/* Botão Voltar */}
+      {/* Botão de regresso */}
       <Link
         href="/salas"
-        className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+        className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors"
       >
-        <ArrowLeft className="h-4 w-4" />
-        Voltar ao catálogo de salas
+        <ArrowLeft className="w-4 h-4" />
+        <span>Voltar ao catálogo de salas</span>
       </Link>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Painel Esquerdo: Galeria, Informações e Recursos */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Fotografia Principal da Sala */}
-          <div className="relative h-80 sm:h-96 w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-800">
-            <img
-              src="https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80"
-              alt="Sala de Reunião"
-              className="w-full h-full object-cover"
-            />
-            <span className="absolute top-4 right-4 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-semibold px-3 py-1 rounded-full backdrop-blur-md">
-              Disponível para Reserva
-            </span>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Coluna Esquerda: Informações da Sala e Consulta de Horários (FE14) */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="bg-[#0b0f19]/90 border border-slate-800 rounded-2xl p-6">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h1 className="text-xl font-bold text-white">Sala Inovação</h1>
+                <p className="text-xs text-slate-400 mt-1">Piso 2 — Ala Norte</p>
+              </div>
+              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-full font-medium">
+                Disponível para agendamento
+              </span>
+            </div>
 
-          {/* Dados Principais */}
-          <div>
-            <span className="text-xs font-semibold text-indigo-400 uppercase tracking-widest">
-              Espaço Corporativo Premium • Sala #{id}
-            </span>
-            <h1 className="text-3xl font-extrabold text-white mt-1">
-              Sala Executiva Aurora
-            </h1>
-            <p className="text-slate-400 text-sm mt-3 leading-relaxed">
-              Concebida especificamente para apresentações executivas, reuniões de conselho e dinâmicas estratégicas.
-              Ambiente totalmente insonorizado com luz natural ajustável e integração direta com ferramentas de conferência.
+            <p className="text-xs text-slate-400 leading-relaxed mb-6">
+              Espaço preparado para reuniões executivas e apresentações estratégicas, equipado com isolamento acústico e ligação de alta velocidade.
             </p>
 
-            <div className="flex flex-wrap items-center gap-6 mt-4 text-sm text-slate-300">
+            <div className="flex flex-wrap gap-4 text-xs text-slate-300 py-3 border-y border-slate-800/80">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-indigo-400" />
-                <span>Edifício Central — Piso 3 (Ala Norte)</span>
+                <Users className="w-4 h-4 text-indigo-400" />
+                <span>Capacidade: <strong>12 pessoas</strong></span>
               </div>
               <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-indigo-400" />
-                <span>Lotação: até 12 pessoas</span>
+                <Wifi className="w-4 h-4 text-indigo-400" />
+                <span>Wi-Fi 1Gbps</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Presentation className="w-4 h-4 text-indigo-400" />
+                <span>Projetor 4K</span>
               </div>
             </div>
           </div>
 
-          {/* Equipamento & Comodidades */}
-          <div className="border-t border-slate-800/80 pt-6">
-            <h2 className="text-lg font-semibold text-white mb-4">
-              Equipamento & Recursos Disponíveis
+          {/* Consulta de Disponibilidade (FE14) */}
+          <div className="bg-[#0b0f19]/90 border border-slate-800 rounded-2xl p-6">
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-2">
+              <Clock className="w-4 h-4 text-indigo-400" />
+              <span>Consulta de Disponibilidade</span>
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {[
-                "Monitor Interativo 4K com suporte a HDMI/AirPlay",
-                "Conexão Wi-Fi 6 dedicada de alta velocidade",
-                "Ar condicionado inteligente com controlo digital",
-                "Sistema de microfones omnidirecionais e videoconferência",
-                "Quadro de escrita em vidro com marcadores",
-                "Pontos de eletricidade e USB embutidos na mesa principal",
-              ].map((item, index) => (
-                <div key={index} className="flex items-center gap-2.5 text-sm text-slate-300">
-                  <CheckCircle2 className="h-4 w-4 text-indigo-400 shrink-0" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Consulte os intervalos livres para a data selecionada:
+            </p>
 
-          {/* Normas do Espaço */}
-          <div className="border-t border-slate-800/80 pt-6">
-            <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-indigo-400" />
-              Regras e Recomendações de Utilização
-            </h2>
-            <ul className="text-sm text-slate-400 space-y-2 list-disc list-inside">
-              <li>Por favor, encerre a reunião 5 minutos antes do término para desocupação da sala.</li>
-              <li>Mantenha as portas fechadas durante videoconferências para assegurar o isolamento acústico.</li>
-              <li>Deixe os cabos e comandos organizados sobre o painel de suporte.</li>
-            </ul>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {HORARIOS_DIA.map((slot) => {
+                const ocupado = horariosOcupados.includes(slot);
+                const selecionado = horarioSelecionado === slot;
+
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    disabled={ocupado}
+                    onClick={() => setHorarioSelecionado(slot)}
+                    className={`p-3 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer ${
+                      ocupado
+                        ? "bg-slate-900/40 border-slate-800/50 text-slate-600 line-through cursor-not-allowed"
+                        : selecionado
+                        ? "bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/30"
+                        : "bg-[#111827]/70 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
+                    }`}
+                  >
+                    {slot}
+                    <div className="text-[10px] mt-1 font-normal opacity-75">
+                      {ocupado ? "Ocupado" : "Disponível"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Painel Direito: Formulário de Agendamento */}
-        <div className="h-fit">
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-md sticky top-24 shadow-xl">
-            <h3 className="text-lg font-bold text-white mb-1">
-              Reservar este Espaço
-            </h3>
-            <p className="text-xs text-slate-400 mb-5">
-              Escolha o dia e o intervalo pretendido para a reunião.
-            </p>
+        {/* Coluna Direita: Formulário de Reserva (FE13) */}
+        <div className="lg:col-span-5">
+          <div className="bg-[#0b0f19]/90 border border-slate-800 rounded-2xl p-6 sticky top-24">
+            <h2 className="text-base font-semibold text-white flex items-center gap-2 mb-4">
+              <Calendar className="w-4 h-4 text-indigo-400" />
+              <span>Efetuar Reserva</span>
+            </h2>
 
             {sucesso ? (
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
-                  <Check className="w-5 h-5" />
-                </div>
-                <h4 className="text-sm font-semibold text-emerald-300">
-                  Reserva Confirmada com Sucesso!
-                </h4>
-                <p className="text-xs text-slate-400">
-                  A confirmação e o resumo da sala foram associados ao seu utilizador.
-                </p>
-                <button
-                  onClick={() => setSucesso(false)}
-                  className="mt-2 text-xs text-indigo-400 hover:text-indigo-300 underline"
-                >
-                  Agendar outra sessão
-                </button>
+              <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-800/40 text-emerald-400 text-xs flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                <span>Reserva efetuada com sucesso! A redirecionar para as suas reservas...</span>
               </div>
             ) : (
-              <form onSubmit={handleAgendar} className="space-y-4">
+              <form onSubmit={handleSubmeterReserva} className="space-y-4">
+                {erro && (
+                  <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-800/40 text-rose-400 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{erro}</span>
+                  </div>
+                )}
+
+                {/* Campo Data */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
                     Data da Reserva
                   </label>
-                  <div className="relative">
-                    <Calendar className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                    <input
-                      type="date"
-                      required
-                      value={data}
-                      onChange={(e) => setData(e.target.value)}
-                      className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
+                  <input
+                    type="date"
+                    value={dataSelecionada}
+                    onChange={(e) => {
+                      setDataSelecionada(e.target.value);
+                      setHorarioSelecionado("");
+                    }}
+                    className="w-full bg-[#111827]/80 border border-slate-700/70 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all cursor-pointer"
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Hora Início
-                    </label>
-                    <div className="relative">
-                      <Clock className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input
-                        type="time"
-                        required
-                        value={inicio}
-                        onChange={(e) => setInicio(e.target.value)}
-                        className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-2 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                      Hora Término
-                    </label>
-                    <div className="relative">
-                      <Clock className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                      <input
-                        type="time"
-                        required
-                        value={termino}
-                        onChange={(e) => setTermino(e.target.value)}
-                        className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-2 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
+                {/* Campo Horário Selecionado */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Assunto / Finalidade da Reunião
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Horário Selecionado
+                  </label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={horarioSelecionado || "Clique num horário ao lado"}
+                    className="w-full bg-[#111827]/40 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-indigo-300 font-medium focus:outline-none cursor-default"
+                  />
+                </div>
+
+                {/* Motivo / Descrição */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Motivo / Título da Reunião
                   </label>
                   <div className="relative">
-                    <FileText className="h-4 w-4 absolute left-3 top-3 text-slate-500" />
+                    <FileText className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                     <textarea
-                      rows={2}
-                      required
+                      rows={3}
                       value={motivo}
                       onChange={(e) => setMotivo(e.target.value)}
-                      placeholder="Ex: Alinhamento trimestral da equipa de produto"
-                      className="w-full bg-slate-800/80 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                      placeholder="Ex: Alinhamento semanal de sprint"
+                      className="w-full bg-[#111827]/80 border border-slate-700/70 rounded-xl pl-9 pr-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all resize-none"
                     />
                   </div>
                 </div>
 
+                {/* Botão de Confirmação */}
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/20"
+                  className="w-full py-3 px-4 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg shadow-indigo-600/30 cursor-pointer"
                 >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Confirmar Agendamento"
-                  )}
+                  Confirmar Agendamento
                 </button>
               </form>
             )}
