@@ -1,110 +1,52 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { RoomCard, Sala } from "@/components/RoomCard";
 import { RoomFilters } from "@/components/RoomFilters";
-import { DoorOpen, Loader2 } from "lucide-react";
+import { RoomSkeleton } from "@/components/RoomSkeleton";
+import { DoorOpen, AlertCircle, RefreshCw } from "lucide-react";
 import { api } from "@/services/api";
-
-const SALAS_FALLBACK: Sala[] = [
-  {
-    id: 1,
-    nome: "Sala Inovação",
-    descricao: "Espaço espaçoso preparado para reuniões executivas e apresentações estratégicas.",
-    capacidade: 12,
-    localizacao: "Piso 2 — Ala Norte",
-    recursos: ["Wi-Fi", "Projetor", "Videoconferência", "Quadro Branco"],
-    disponivel: true,
-  },
-  {
-    id: 2,
-    nome: "Sala Brainstorm",
-    descricao: "Ambiente descontraído concebido para sessões de cocriação e planeamento de equipa.",
-    capacidade: 6,
-    localizacao: "Piso 1 — Ala Criativa",
-    recursos: ["Wi-Fi", "TV", "Quadro Branco"],
-    disponivel: true,
-  },
-  {
-    id: 3,
-    nome: "Auditório Central",
-    descricao: "Infraestrutura ampla com isolamento acústico e sistema audiovisual.",
-    capacidade: 30,
-    localizacao: "Piso Térreo",
-    recursos: ["Wi-Fi", "Projetor", "Videoconferência"],
-    disponivel: false,
-  },
-  {
-    id: 4,
-    nome: "Sala Focus",
-    descricao: "Cabine privada para chamadas individuais ou entrevistas rápidas.",
-    capacidade: 4,
-    localizacao: "Piso 2 — Ala Sul",
-    recursos: ["Wi-Fi", "TV"],
-    disponivel: true,
-  },
-];
 
 export default function SalasPage() {
   const [salas, setSalas] = useState<Sala[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [erroApi, setErroApi] = useState("");
 
   const [busca, setBusca] = useState("");
   const [capacidadeMinima, setCapacidadeMinima] = useState(0);
   const [recursoSelecionado, setRecursoSelecionado] = useState("Todos");
 
-  useEffect(() => {
-    let ativo = true;
-
-    async function carregarSalas() {
-      try {
-        setCarregando(true);
-        const response = await api.get("/salas");
-        if (ativo) {
-          setSalas(response.data);
-        }
-      } catch {
-        // Fallback silencioso: preenche os cartões sem disparar logs de erro no ecrã de depuração
-        if (ativo) {
-          setSalas(SALAS_FALLBACK);
-        }
-      } finally {
-        if (ativo) {
-          setCarregando(false);
-        }
-      }
+  const carregarSalas = useCallback(async () => {
+    try {
+      setCarregando(true);
+      setErroApi("");
+      const response = await api.get("/salas");
+      setSalas(response.data);
+    } catch {
+      setErroApi("Não foi possível estabelecer ligação com o servidor para obter as salas.");
+    } finally {
+      setCarregando(false);
     }
-
-    carregarSalas();
-
-    return () => {
-      ativo = false;
-    };
   }, []);
+
+  useEffect(() => {
+    carregarSalas();
+  }, [carregarSalas]);
 
   const salasFiltradas = useMemo(() => {
     return salas.filter((sala) => {
       const matchBusca =
         sala.nome?.toLowerCase().includes(busca.toLowerCase()) ||
         sala.localizacao?.toLowerCase().includes(busca.toLowerCase());
-
       const matchCapacidade = (sala.capacidade || 0) >= capacidadeMinima;
-
       const matchRecurso =
         recursoSelecionado === "Todos" ||
         sala.recursos?.some((r) =>
           r.toLowerCase().includes(recursoSelecionado.toLowerCase())
         );
-
       return matchBusca && matchCapacidade && matchRecurso;
     });
   }, [salas, busca, capacidadeMinima, recursoSelecionado]);
-
-  const limparFiltros = () => {
-    setBusca("");
-    setCapacidadeMinima(0);
-    setRecursoSelecionado("Todos");
-  };
 
   return (
     <div className="space-y-6">
@@ -125,13 +67,37 @@ export default function SalasPage() {
         setCapacidadeMinima={setCapacidadeMinima}
         recursoSelecionado={recursoSelecionado}
         setRecursoSelecionado={setRecursoSelecionado}
-        onLimparFiltros={limparFiltros}
+        onLimparFiltros={() => {
+          setBusca("");
+          setCapacidadeMinima(0);
+          setRecursoSelecionado("Todos");
+        }}
       />
 
+      {/* FE21: Estado de Carregamento com Skeleton */}
       {carregando ? (
-        <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
-          <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
-          <p className="text-xs">A carregar salas disponíveis...</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <RoomSkeleton key={i} />
+          ))}
+        </div>
+      ) : erroApi ? (
+        /* FE21: Estado de Erro com Ação de Retentativa */
+        <div className="bg-rose-950/20 border border-rose-900/40 rounded-2xl p-8 text-center space-y-4">
+          <div className="inline-flex p-3 rounded-xl bg-rose-900/30 text-rose-400">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white">Falha na Comunicação</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">{erroApi}</p>
+          </div>
+          <button
+            onClick={carregarSalas}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-md shadow-indigo-600/30"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Tentar Novamente</span>
+          </button>
         </div>
       ) : salasFiltradas.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -142,18 +108,10 @@ export default function SalasPage() {
       ) : (
         <div className="bg-[#0b0f19]/60 border border-slate-800 rounded-2xl p-12 text-center">
           <DoorOpen className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <h3 className="text-sm font-semibold text-white mb-1">
-            Nenhuma sala encontrada
-          </h3>
+          <h3 className="text-sm font-semibold text-white mb-1">Nenhuma sala encontrada</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mb-4">
             Não existem salas que correspondam aos filtros selecionados.
           </p>
-          <button
-            onClick={limparFiltros}
-            className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-4 cursor-pointer"
-          >
-            Limpar filtros de pesquisa
-          </button>
         </div>
       )}
     </div>
