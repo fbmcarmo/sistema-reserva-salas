@@ -1,49 +1,65 @@
 @import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  :root {
-    /* Fundo Obsidian Profundo e Superfícies */
-    --background: 224 71% 4%;        /* #030712 / preto azulado profundo */
-    --foreground: 210 40% 98%;       /* Texto principal quase branco */
-
-    --card: 222 47% 7%;              /* #090e1a / fundo dos cartões */
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222 47% 7%;
-    --popover-foreground: 210 40% 98%;
-
-    /* Cor de Destaque / Ação (Lovable Suite Seeker) */
-    --primary: 246 80% 60%;          /* Violeta / Índigo corporativo Suite Seeker */
-    --primary-foreground: 210 40% 98%;
-
-    /* Elementos Secundários e Muted */
-    --secondary: 217 33% 13%;        /* Superfícies de inputs e tags */
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217 33% 17%;            /* Estados hover e fundos suaves */
-    --muted-foreground: 215 20% 65%; /* Subtítulos e ícones inativos */
-
-    --accent: 217 33% 15%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    /* Bordas e Anéis com Glassmorphism */
-    --border: 217 33% 17%;           /* Linhas discretas */
-    --input: 217 33% 17%;
-    --ring: 246 80% 60%;
-
-    --radius: 0.75rem;
-  }
+@theme inline {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-feature-settings: "rlig" 1, "calt" 1;
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.975 0.008 80);
+  --foreground: oklch(0.2 0.02 50);
+  --card: oklch(0.995 0.004 80);
+  --card-foreground: oklch(0.2 0.02 50);
+  --popover: oklch(0.995 0.004 80);
+  --popover-foreground: oklch(0.2 0.02 50);
+  --primary: oklch(0.6 0.16 40);
+  --primary-foreground: oklch(0.99 0.005 80);
+  --secondary: oklch(0.93 0.015 80);
+  --secondary-foreground: oklch(0.2 0.02 50);
+  --muted: oklch(0.945 0.012 80);
+  --muted-foreground: oklch(0.5 0.02 55);
+  --accent: oklch(0.93 0.04 60);
+  --accent-foreground: oklch(0.2 0.02 50);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.55 0.13 150);
+  --border: oklch(0.89 0.015 75);
+  --input: oklch(0.87 0.015 75);
+  --ring: oklch(0.6 0.16 40);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
 }
