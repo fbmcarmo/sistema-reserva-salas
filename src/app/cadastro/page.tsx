@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie";
-import { api } from "@/services/api";
+import { authService } from "@/services/endpoints";
+import { apiError } from "@/services/api";
 import { Loader2 } from "lucide-react";
 
 export default function CadastroPage() {
@@ -27,7 +27,7 @@ export default function CadastroPage() {
     }
 
     if (senha.length < 6) {
-      setErro("A senha deve conter no mínimo 6 caracteres.");
+      setErro("A senha deve conter no mínimo 8 caracteres.");
       return;
     }
 
@@ -39,19 +39,14 @@ export default function CadastroPage() {
     setCarregando(true);
 
     try {
-      await api.post("/usuarios", {
+      await authService.register( {
         nome: nome.trim(),
         email: email.trim(),
         senha,
       });
       router.push("/login?cadastrado=sucesso");
-    } catch {
-      // Fallback offline: cadastra no armazenamento local para permitir testes imediatos
-      const usuarioLocal = { id: 1, nome: nome.trim(), email: email.trim() };
-      localStorage.setItem("user", JSON.stringify(usuarioLocal));
-      Cookies.set("token", "token-demo-suite-seeker", { expires: 1, path: "/" });
-      
-      router.push("/salas");
+    } catch (error) {
+      setErro(apiError(error));
     } finally {
       setCarregando(false);
     }
@@ -123,7 +118,7 @@ export default function CadastroPage() {
                 required
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres"
                 className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-all"
               />
             </div>

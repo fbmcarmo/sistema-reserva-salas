@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { api } from "@/services/api";
+import { usersService, authService } from "@/services/endpoints";
+import { apiError } from "@/services/api";
 import {
   Plus,
   Search,
@@ -56,29 +57,14 @@ export default function UsuariosPage() {
   const [salvando, setSalvando] = useState(false);
   const [erroModal, setErroModal] = useState("");
   const [mensagemSucesso, setMensagemSucesso] = useState("");
+  const [erroApi, setErroApi] = useState("");
 
   const carregarUsuarios = useCallback(async () => {
     try {
       setCarregando(true);
-      const response = await api.get("/usuarios");
-      if (response.data && response.data.length > 0) {
-        setUsuarios(response.data);
-      } else {
-        setUsuarios(USUARIOS_INICIAIS);
-      }
-    } catch {
-      // Recupera utilizadores do localStorage ou usa a lista de demonstração
-      const salvos = localStorage.getItem("lista_usuarios");
-      if (salvos) {
-        try {
-          setUsuarios(JSON.parse(salvos));
-        } catch {
-          setUsuarios(USUARIOS_INICIAIS);
-        }
-      } else {
-        setUsuarios(USUARIOS_INICIAIS);
-        localStorage.setItem("lista_usuarios", JSON.stringify(USUARIOS_INICIAIS));
-      }
+      setUsuarios(await usersService.list());
+    } catch (error) {
+      setErroApi(apiError(error)); setUsuarios([]);
     } finally {
       setCarregando(false);
     }
@@ -115,36 +101,22 @@ export default function UsuariosPage() {
     };
 
     try {
-      await api.post("/usuarios", {
+      await authService.register({
         nome: novoItem.nome,
         email: novoItem.email,
         senha: novaSenha,
-        role: novoItem.role,
       });
       await carregarUsuarios();
-    } catch {
-      // Fallback local se o backend estiver desconectado
-      const atualizados = [novoItem, ...usuarios];
-      setUsuarios(atualizados);
-      localStorage.setItem("lista_usuarios", JSON.stringify(atualizados));
-    } finally {
-      setSalvando(false);
-      setModalAberto(false);
-      setNovoNome("");
-      setNovoEmail("");
-      setNovaSenha("");
-      setNovoRole("USER");
+      setModalAberto(false); setNovoNome(""); setNovoEmail(""); setNovaSenha("");
       setMensagemSucesso("Usuário cadastrado com sucesso!");
-      setTimeout(() => setMensagemSucesso(""), 3500);
-    }
+    } catch (error) { setErroModal(apiError(error)); }
+    finally { setSalvando(false); }
   };
 
-  const handleRemoverUsuario = (id: string | number) => {
-    const atualizados = usuarios.filter((u) => u.id !== id);
-    setUsuarios(atualizados);
-    localStorage.setItem("lista_usuarios", JSON.stringify(atualizados));
-    setMensagemSucesso("Usuário removido.");
-    setTimeout(() => setMensagemSucesso(""), 3000);
+  const handleRemoverUsuario = async (id: string | number) => {
+    if (!window.confirm("Excluir usuário?")) return;
+    try { await usersService.remove(id); await carregarUsuarios(); setMensagemSucesso("Usuário removido."); }
+    catch (error) { setErroApi(apiError(error)); }
   };
 
   return (
@@ -170,6 +142,7 @@ export default function UsuariosPage() {
         </button>
       </div>
 
+      {erroApi && <p role="alert" className="text-destructive">{erroApi}</p>}
       {mensagemSucesso && (
         <div className="p-3.5 rounded-xl bg-success/10 border border-success/20 text-success text-xs flex items-center gap-2.5">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />

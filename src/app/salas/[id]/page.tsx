@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api } from "@/services/api";
+import { roomsService, reservationsService } from "@/services/endpoints";
+import { apiError } from "@/services/api";
 import { ArrowLeft, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SalaDetalhe {
   id: number | string;
@@ -14,29 +16,6 @@ interface SalaDetalhe {
   localizacao?: string;
 }
 
-const SALAS_MOCK: Record<string, SalaDetalhe> = {
-  "1": {
-    id: 1,
-    nome: "Sala Atlântico",
-    capacidade: 8,
-    localizacao: "1º andar",
-    descricao: "TV e quadro branco",
-  },
-  "2": {
-    id: 2,
-    nome: "Sala Sertão",
-    capacidade: 4,
-    localizacao: "2º andar",
-    descricao: "Ideal para reuniões rápidas",
-  },
-  "3": {
-    id: 3,
-    nome: "Auditório",
-    capacidade: 40,
-    localizacao: "Térreo",
-    descricao: "Projetor e som",
-  },
-};
 
 const HORARIOS_DIA = [
   "08:00 - 09:00",
@@ -52,6 +31,7 @@ const HORARIOS_DIA = [
 export default function DetalhesSalaPage() {
   const params = useParams();
   const router = useRouter();
+  const { user, isLoading } = useAuth();
   const salaId = String(params?.id || "1");
 
   const [sala, setSala] = useState<SalaDetalhe | null>(null);
@@ -70,17 +50,9 @@ export default function DetalhesSalaPage() {
     async function carregarSala() {
       try {
         setCarregandoSala(true);
-        const response = await api.get(`/salas/${salaId}`);
-        setSala(response.data);
-      } catch {
-        // Fallback para salas do Lovable
-        setSala(SALAS_MOCK[salaId] || {
-          id: salaId,
-          nome: `Sala ${salaId}`,
-          capacidade: 6,
-          localizacao: "Andar Corporativo",
-          descricao: "Espaço equipado para reuniões",
-        });
+        setSala(await roomsService.get(salaId));
+      } catch (error) {
+        setErro(apiError(error)); setSala(null);
       } finally {
         setCarregandoSala(false);
       }
@@ -89,49 +61,84 @@ export default function DetalhesSalaPage() {
     carregarSala();
   }, [salaId]);
 
-  const handleSubmeterReserva = async (e: React.FormEvent) => {
+  
+  const handleSubmeterReserva = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
     setErro("");
+
+    if (isLoading) {
+      setErro("Aguarde a identificação do usuário.");
+      return;
+    }
+
+    const userId = Number(user?.id);
+    const roomId = Number(salaId);
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      setErro(
+        "Não foi possível identificar o ID do usuário autenticado."
+      );
+      return;
+    }
+
+    if (!Number.isInteger(roomId) || roomId <= 0) {
+      setErro("ID da sala inválido.");
+      return;
+    }
 
     if (!horarioSelecionado) {
       setErro("Selecione um horário para agendar.");
       return;
     }
 
+    if (!dataSelecionada) {
+      setErro("Selecione uma data para a reserva.");
+      return;
+    }
+
     setSubmetendo(true);
 
     try {
-      await api.post("/reservas", {
-        salaId: Number(salaId) || salaId,
-        data: dataSelecionada,
-        horario: horarioSelecionado,
-        motivo: motivo.trim() || "Reunião de Alinhamento",
+      const [inicio, fim] = horarioSelecionado.split(" - ");
+
+      const startDate = `${dataSelecionada}T${inicio}:00`;
+      const endDate = `${dataSelecionada}T${fim}:00`;
+
+      const disponibilidade = await roomsService.availability(
+        roomId,
+        { startDate, endDate }
+      );
+
+      if (
+        disponibilidade?.available === false ||
+        disponibilidade?.disponivel === false
+      ) {
+        throw new Error(
+          "Sala indisponível neste horário."
+        );
+      }
+
+      await reservationsService.create({
+        userId,
+        roomId,
+        startDate,
+        endDate,
       });
 
       setSucesso(true);
-      setTimeout(() => router.push("/salas/minhas-reservas"), 1200);
-    } catch {
-      // Fallback offline: adiciona a nova reserva no localStorage
-      const nova = {
-        id: Date.now(),
-        sala_id: salaId,
-        nomeSala: sala?.nome || `Sala ${salaId}`,
-        data: dataSelecionada,
-        horario: horarioSelecionado,
-        motivo: motivo.trim() || "Reunião",
-        status: "Confirmada",
-      };
 
-      const salvas = localStorage.getItem("minhas_reservas");
-      const lista = salvas ? JSON.parse(salvas) : [];
-      localStorage.setItem("minhas_reservas", JSON.stringify([nova, ...lista]));
-
-      setSucesso(true);
-      setTimeout(() => router.push("/salas/minhas-reservas"), 1200);
+      setTimeout(() => {
+        router.push("/salas/minhas-reservas");
+      }, 1200);
+    } catch (error) {
+      setErro(apiError(error));
     } finally {
       setSubmetendo(false);
     }
   };
+
 
   if (carregandoSala) {
     return (
