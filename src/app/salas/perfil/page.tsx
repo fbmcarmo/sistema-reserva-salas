@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usersService } from "@/services/endpoints";
+import { apiError } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 export default function MeuPerfilPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
-  const [nome, setNome] = useState("May S");
-  const [email, setEmail] = useState("mayarasoaresdev@gmail.com");
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState("");
@@ -20,24 +22,16 @@ export default function MeuPerfilPage() {
     }
   }, [user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGuardando(true);
 
-    setTimeout(() => {
-      // Atualiza os dados persistidos no armazenamento local
-      const dadosAtualizados = {
-        ...(user || {}),
-        nome,
-        email,
-      };
-      localStorage.setItem("user", JSON.stringify(dadosAtualizados));
-
-      setGuardando(false);
-      setNovaSenha("");
-      setMensagemSucesso("Perfil atualizado com sucesso!");
-      setTimeout(() => setMensagemSucesso(""), 3500);
-    }, 500);
+    try {
+      if (!user) throw new Error("Usuário não autenticado.");
+      await usersService.update(user.id, { nome, email, ...(novaSenha ? { senha: novaSenha } : {}) });
+      await refreshUser(); setNovaSenha(""); setMensagemSucesso("Perfil atualizado com sucesso!");
+    } catch (error) { setMensagemSucesso(apiError(error)); }
+    finally { setGuardando(false); }
   };
 
   return (

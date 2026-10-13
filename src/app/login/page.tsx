@@ -2,14 +2,13 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import Cookies from "js-cookie";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiError } from "@/services/api";
 import { Loader2 } from "lucide-react";
 
 function LoginForm() {
   const { login } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
@@ -32,12 +31,8 @@ function LoginForm() {
 
     try {
       await login({ email, senha });
-    } catch {
-      // Fallback offline: se a API não estiver rodando, loga como May S
-      const usuarioMock = { id: 1, nome: "May S", email };
-      localStorage.setItem("user", JSON.stringify(usuarioMock));
-      Cookies.set("token", "token-demo-suite-seeker", { expires: 1, path: "/" });
-      router.push("/salas");
+    } catch (error) {
+      setErro(apiError(error));
     } finally {
       setCarregando(false);
     }

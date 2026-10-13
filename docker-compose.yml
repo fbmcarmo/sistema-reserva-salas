@@ -1,0 +1,29 @@
+
+services:
+  frontend:
+    container_name: sistema-reserva-salas-frontend
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+
+    restart: unless-stopped
+
+    init: true
+
+    networks:
+      - reserva-salas-network
+
+networks:
+  reserva-salas-network:
+    driver: bridge
