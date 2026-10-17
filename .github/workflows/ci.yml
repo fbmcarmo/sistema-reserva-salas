@@ -1,0 +1,52 @@
+
+name: CI - Frontend
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  quality:
+    name: Qualidade e Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar ESLint
+        run: npm run lint
+
+      - name: Verificar TypeScript
+        run: npx tsc --noEmit
+
+      - name: Executar build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+
+  docker:
+    name: Validar Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Construir imagem
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:3001 \
+            -t reserva-salas-frontend:ci .
