@@ -356,7 +356,6 @@ export default function DetalhesSalaPage() {
         roomId,
         startDate,
         endDate,
-        status,
       });
 
       setSucesso(true);
