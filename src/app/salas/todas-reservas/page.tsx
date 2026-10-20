@@ -14,6 +14,10 @@ import {
 type ReservaComStatus = Reserva & { status?: string | null };
 type UsuarioComNome = Usuario & { name?: string; nome?: string };
 
+function obterStatus(reserva: ReservaComStatus): string {
+  return reserva.status?.trim() || "Não informado";
+}
+
 const formatarData = (valor?: string): string => {
   if (!valor) return "Data não informada";
   const data = new Date(valor);
@@ -48,48 +52,79 @@ export default function TodasReservasPage() {
   const [cancelando, setCancelando] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState("");
 
-  const carregarReservas = useCallback(async () => {
-    setCarregando(true);
-    setErroApi("");
-    setAviso("");
-    try {
-      const resultado = await Promise.allSettled([
+  // A busca não altera estado antes de terminar a requisição.
+  const buscarDados = useCallback(async () => {
+    const [reservasResultado, salasResultado, usuariosResultado] =
+      await Promise.allSettled([
         reservationsService.list(),
         roomsService.list(),
         usersService.list(),
       ]);
 
-      const [reservasResultado, salasResultado, usuariosResultado] = resultado;
-      if (reservasResultado.status === "rejected") {
-        throw reservasResultado.reason;
-      }
-      setReservas(reservasResultado.value);
+    if (reservasResultado.status === "rejected") {
+      throw reservasResultado.reason;
+    }
 
-      if (salasResultado.status === "fulfilled") {
-        setSalas(salasResultado.value);
-      } else {
+    return {
+      reservas: reservasResultado.value as ReservaComStatus[],
+      salas: salasResultado.status === "fulfilled" ? salasResultado.value : [] as Sala[],
+      usuarios: usuariosResultado.status === "fulfilled" ? usuariosResultado.value : [] as UsuarioComNome[],
+      aviso: salasResultado.status === "rejected" || usuariosResultado.status === "rejected"
+        ? "Alguns nomes não puderam ser carregados. Verifique suas permissões para consultar salas e usuários."
+        : "",
+    };
+  }, []);
+
+  // No primeiro carregamento, o estado só é atualizado após a requisição.
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarInicial() {
+      try {
+        const dados = await buscarDados();
+        if (!ativo) return;
+        setReservas(dados.reservas);
+        setSalas(dados.salas);
+        setUsuarios(dados.usuarios);
+        setAviso(dados.aviso);
+        setErroApi("");
+      } catch (error) {
+        if (!ativo) return;
+        setErroApi(apiError(error));
+        setReservas([]);
         setSalas([]);
-      }
-      if (usuariosResultado.status === "fulfilled") {
-        setUsuarios(usuariosResultado.value);
-      } else {
         setUsuarios([]);
+        setAviso("");
+      } finally {
+        if (ativo) setCarregando(false);
       }
+    }
 
-      if (salasResultado.status === "rejected" || usuariosResultado.status === "rejected") {
-        setAviso("Alguns nomes não puderam ser carregados. Verifique suas permissões para consultar salas e usuários.");
-      }
+    void carregarInicial();
+    return () => { ativo = false; };
+  }, [buscarDados]);
+
+  // Chamado somente por ações do usuário, nunca diretamente pelo efeito.
+  const carregarReservas = useCallback(async () => {
+    setCarregando(true);
+    setErroApi("");
+    setAviso("");
+    try {
+      const dados = await buscarDados();
+      setReservas(dados.reservas);
+      setSalas(dados.salas);
+      setUsuarios(dados.usuarios);
+      setAviso(dados.aviso);
     } catch (error) {
       setErroApi(apiError(error));
       setReservas([]);
+      setSalas([]);
+      setUsuarios([]);
+      throw error;
     } finally {
       setCarregando(false);
     }
-  }, []);
-
-  useEffect(() => {
-    void carregarReservas();
-  }, [carregarReservas]);
+  }, [buscarDados]);
 
   const nomesSalas = useMemo(
     () => new Map(salas.map((sala) => [String(sala.id), sala.nome])),
@@ -109,14 +144,11 @@ export default function TodasReservasPage() {
   const obterNomeUsuario = (reserva: Reserva): string =>
     nomesUsuarios.get(String(reserva.userId)) || `Usuário ${reserva.userId ?? "não identificado"}`;
 
-  const obterStatus = (reserva: ReservaComStatus): string =>
-    reserva.status?.trim() || "Não informado";
-
   const reservasFiltradas = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     return reservas.filter((reserva) => {
-      const nomeSala = obterNomeSala(reserva);
-      const nomeUsuario = obterNomeUsuario(reserva);
+      const nomeSala = nomesSalas.get(String(reserva.roomId)) || `Sala ${reserva.roomId ?? "não identificada"}`;
+      const nomeUsuario = nomesUsuarios.get(String(reserva.userId)) || `Usuário ${reserva.userId ?? "não identificado"}`;
       const status = obterStatus(reserva);
       const correspondeBusca =
         nomeSala.toLocaleLowerCase("pt-BR").includes(termo) ||
@@ -134,14 +166,18 @@ export default function TodasReservasPage() {
   );
 
   const confirmarCancelamento = async () => {
-    if (!reservaParaCancelar) return;
+    if (!reservaParaCancelar || cancelando) return;
     setCancelando(true);
     setErroApi("");
     try {
       await reservationsService.remove(reservaParaCancelar.id);
       setMensagemSucesso("Reserva cancelada com sucesso.");
       setReservaParaCancelar(null);
-      await carregarReservas();
+      try {
+        await carregarReservas();
+      } catch {
+        // A reserva já foi cancelada; o erro de recarga foi exibido.
+      }
     } catch (error) {
       setErroApi(apiError(error));
     } finally {
@@ -214,7 +250,7 @@ export default function TodasReservasPage() {
           <AlertCircle className="w-6 h-6 text-destructive mx-auto" />
           <h3 className="text-sm font-semibold text-foreground">Falha ao carregar reservas</h3>
           <p className="text-xs text-muted-foreground">{erroApi}</p>
-          <button type="button" onClick={() => void carregarReservas()} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground cursor-pointer">
+          <button type="button" onClick={() => { void carregarReservas().catch(() => {}); }} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground cursor-pointer">
             <RefreshCw className="w-3.5 h-3.5" /> Tentar novamente
           </button>
         </div>
