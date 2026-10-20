@@ -21,4 +21,5 @@ export interface Reserva {
   roomId: number;
   startDate: string;
   endDate: string;
+  status: string;
 }
