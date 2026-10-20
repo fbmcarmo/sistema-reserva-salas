@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Clock3,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -39,20 +38,21 @@ interface ReservaSala {
   status: string;
 }
 
-type RespostaReservas =
-  | ReservaSala[]
-  | { data: ReservaSala[] }
-  | { reservations: ReservaSala[] };
-
 const HORARIOS_DIA = [
   "08:00 - 09:00",
   "09:00 - 10:00",
   "10:00 - 11:00",
   "11:00 - 12:00",
+  "12:00 - 13:00",
+  "13:00 - 14:00",
   "14:00 - 15:00",
   "15:00 - 16:00",
   "16:00 - 17:00",
   "17:00 - 18:00",
+  "18:00 - 19:00",
+  "19:00 - 20:00",
+  "20:00 - 21:00",
+  "21:00 - 22:00"
 ];
 
 function obterDataLocal(): string {
@@ -65,70 +65,49 @@ function obterDataLocal(): string {
   return `${ano}-${mes}-${dia}`;
 }
 
-function obterReservas(
-  resposta: RespostaReservas
-): ReservaSala[] {
-  if (Array.isArray(resposta)) {
-    return resposta;
-  }
+// Os horários são interpretados no fuso local do navegador.
+const HORA_ABERTURA = "08:00";
+const HORA_FECHAMENTO = "22:00";
 
-  if ("data" in resposta && Array.isArray(resposta.data)) {
-    return resposta.data;
-  }
-
-  if (
-    "reservations" in resposta &&
-    Array.isArray(resposta.reservations)
-  ) {
-    return resposta.reservations;
-  }
-
-  throw new Error(
-    "Formato inesperado na resposta das reservas."
-  );
-}
-
-function obterIntervalo(
-  data: string,
-  horario: string
-) {
-  const [inicio, fim] = horario.split(" - ");
-
+function criarIntervalo(data: string, inicio: string, fim: string) {
   return {
     inicio: new Date(`${data}T${inicio}:00`),
     fim: new Date(`${data}T${fim}:00`),
   };
 }
 
-function horarioOcupado(
+function intervaloOcupado(
   reservas: ReservaSala[],
   data: string,
-  horario: string
+  inicio: string,
+  fim: string
 ): boolean {
-  const intervalo = obterIntervalo(data, horario);
+  const intervalo = criarIntervalo(data, inicio, fim);
 
   return reservas.some((reserva) => {
-    if (reserva.status !== "CONFIRMADA") {
-      return false;
-    }
-
+    if (reserva.status?.toUpperCase() !== "CONFIRMADA") return false;
     const inicioReserva = new Date(reserva.startDate);
     const fimReserva = new Date(reserva.endDate);
-
-    return (
-      intervalo.inicio < fimReserva &&
-      intervalo.fim > inicioReserva
-    );
+    return intervalo.inicio < fimReserva && intervalo.fim > inicioReserva;
   });
 }
 
-function horarioPassado(
-  data: string,
-  horario: string
-): boolean {
-  const intervalo = obterIntervalo(data, horario);
+function intervaloPassado(data: string, inicio: string): boolean {
+  return new Date(`${data}T${inicio}:00`).getTime() <= Date.now();
+}
 
-  return intervalo.inicio.getTime() <= Date.now();
+function validarPeriodo(data: string, inicio: string, fim: string): string {
+  if (!data || !inicio || !fim) return "Informe a data e os horários de início e fim.";
+  if (inicio < HORA_ABERTURA || fim > HORA_FECHAMENTO) {
+    return `Escolha um período entre ${HORA_ABERTURA} e ${HORA_FECHAMENTO}.`;
+  }
+  const intervalo = criarIntervalo(data, inicio, fim);
+  if (Number.isNaN(intervalo.inicio.getTime()) || Number.isNaN(intervalo.fim.getTime())) {
+    return "Informe horários válidos.";
+  }
+  if (intervalo.inicio >= intervalo.fim) return "O horário final deve ser posterior ao inicial.";
+  if (intervaloPassado(data, inicio)) return "Não é possível reservar um horário passado.";
+  return "";
 }
 
 export default function DetalhesSalaPage() {
@@ -144,8 +123,8 @@ export default function DetalhesSalaPage() {
   const [dataSelecionada, setDataSelecionada] =
     useState(obterDataLocal);
 
-  const [horarioSelecionado, setHorarioSelecionado] =
-    useState("");
+  const [inicioEscolhido, setInicioEscolhido] = useState("");
+  const [fimEscolhido, setFimEscolhido] = useState("");
 
   const [motivo, setMotivo] = useState("");
 
@@ -207,7 +186,8 @@ export default function DetalhesSalaPage() {
       setCarregandoHorarios(true);
       setErroHorarios("");
       setReservas([]);
-      setHorarioSelecionado("");
+      setInicioEscolhido("");
+      setFimEscolhido("");
 
       try {
         const dados = await buscarReservas();
@@ -276,42 +256,19 @@ export default function DetalhesSalaPage() {
       return;
     }
 
-    if (!dataSelecionada || !horarioSelecionado) {
-      setErro("Selecione uma data e um horário.");
+    const erroPeriodo = validarPeriodo(dataSelecionada, inicioEscolhido, fimEscolhido);
+    if (erroPeriodo) {
+      setErro(erroPeriodo);
       return;
     }
 
-    if (!HORARIOS_DIA.includes(horarioSelecionado)) {
-      setErro("Horário selecionado inválido.");
+    if (intervaloOcupado(reservas, dataSelecionada, inicioEscolhido, fimEscolhido)) {
+      setErro("O período escolhido já possui uma reserva confirmada.");
       return;
     }
 
-    if (dataSelecionada < obterDataLocal()) {
-      setErro("Não é possível reservar uma data passada.");
-      return;
-    }
-
-    if (horarioPassado(dataSelecionada, horarioSelecionado)) {
-      setErro("Não é possível reservar um horário passado.");
-      return;
-    }
-
-    if (
-      horarioOcupado(
-        reservas,
-        dataSelecionada,
-        horarioSelecionado
-      )
-    ) {
-      setErro("Este horário já está reservado.");
-      setHorarioSelecionado("");
-      return;
-    }
-
-    const [inicio, fim] = horarioSelecionado.split(" - ");
-
-    const startDate = `${dataSelecionada}T${inicio}:00`;
-    const endDate = `${dataSelecionada}T${fim}:00`;
+    const startDate = `${dataSelecionada}T${inicioEscolhido}:00`;
+    const endDate = `${dataSelecionada}T${fimEscolhido}:00`;
 
     setSubmetendo(true);
 
@@ -320,17 +277,8 @@ export default function DetalhesSalaPage() {
       const reservasAtualizadas = await buscarReservas();
       setReservas(reservasAtualizadas);
 
-      if (
-        horarioOcupado(
-          reservasAtualizadas,
-          dataSelecionada,
-          horarioSelecionado
-        )
-      ) {
-        setHorarioSelecionado("");
-        throw new Error(
-          "Este horário acabou de ser reservado. Escolha outro."
-        );
+      if (intervaloOcupado(reservasAtualizadas, dataSelecionada, inicioEscolhido, fimEscolhido)) {
+        throw new Error("Este período acabou de ser reservado. Escolha outro.");
       }
 
       const disponibilidade = await roomsService.availability(
@@ -345,7 +293,8 @@ export default function DetalhesSalaPage() {
         disponibilidade?.available === false ||
         disponibilidade?.disponivel === false
       ) {
-        setHorarioSelecionado("");
+        setInicioEscolhido("");
+        setFimEscolhido("");
         throw new Error(
           "Sala indisponível neste horário."
         );
@@ -493,19 +442,10 @@ export default function DetalhesSalaPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {HORARIOS_DIA.map((slot) => {
-                const ocupado = horarioOcupado(
-                  reservas,
-                  dataSelecionada,
-                  slot
-                );
-
-                const passado = horarioPassado(
-                  dataSelecionada,
-                  slot
-                );
-
-                const selecionado =
-                  horarioSelecionado === slot;
+                const [inicioSlot, fimSlot] = slot.split(" - ");
+                const ocupado = intervaloOcupado(reservas, dataSelecionada, inicioSlot, fimSlot);
+                const passado = intervaloPassado(dataSelecionada, inicioSlot);
+                const selecionado = inicioEscolhido === inicioSlot && fimEscolhido === fimSlot;
 
                 const bloqueado =
                   ocupado ||
@@ -535,7 +475,8 @@ export default function DetalhesSalaPage() {
                     type="button"
                     disabled={bloqueado}
                     onClick={() => {
-                      setHorarioSelecionado(slot);
+                      setInicioEscolhido(inicioSlot);
+                      setFimEscolhido(fimSlot);
                       setErro("");
                     }}
                     className={`p-3 rounded-xl text-xs font-medium border text-center transition-all ${estilo} disabled:cursor-not-allowed`}
@@ -604,31 +545,61 @@ export default function DetalhesSalaPage() {
                     disabled={submetendo}
                     onChange={(e) => {
                       setDataSelecionada(e.target.value);
-                      setHorarioSelecionado("");
+                      setInicioEscolhido("");
+                      setFimEscolhido("");
                       setErro("");
                     }}
                     className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring cursor-pointer"
                   />
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="horario-reserva"
-                    className="block text-xs font-medium text-foreground mb-1.5"
-                  >
-                    Horário escolhido
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-foreground">
+                    Horário escolhido (você também pode digitar)
                   </label>
-
-                  <input
-                    id="horario-reserva"
-                    type="text"
-                    readOnly
-                    value={
-                      horarioSelecionado ||
-                      "Nenhum horário selecionado"
-                    }
-                    className="w-full bg-muted/50 border border-border rounded-xl px-3.5 py-2.5 text-xs text-foreground font-medium focus:outline-none cursor-default"
-                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="inicio-reserva" className="block text-xs text-muted-foreground mb-1">Início</label>
+                      <input
+                        id="inicio-reserva"
+                        type="time"
+                        min={HORA_ABERTURA}
+                        max={HORA_FECHAMENTO}
+                        step={60}
+                        required
+                        value={inicioEscolhido}
+                        disabled={submetendo}
+                        onChange={(e) => { setInicioEscolhido(e.target.value); setErro(""); }}
+                        className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="fim-reserva" className="block text-xs text-muted-foreground mb-1">Fim</label>
+                      <input
+                        id="fim-reserva"
+                        type="time"
+                        min={HORA_ABERTURA}
+                        max={HORA_FECHAMENTO}
+                        step={60}
+                        required
+                        value={fimEscolhido}
+                        disabled={submetendo}
+                        onChange={(e) => { setFimEscolhido(e.target.value); setErro(""); }}
+                        className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Escolha um botão de horário ou digite o início e o fim (ex.: 09:30 até 11:15).
+                  </p>
+                  {inicioEscolhido && fimEscolhido && !carregandoHorarios && !erroHorarios && (
+                    <p className={`text-xs ${validarPeriodo(dataSelecionada, inicioEscolhido, fimEscolhido) || intervaloOcupado(reservas, dataSelecionada, inicioEscolhido, fimEscolhido) ? "text-destructive" : "text-emerald-600"}`}>
+                      {validarPeriodo(dataSelecionada, inicioEscolhido, fimEscolhido) ||
+                        (intervaloOcupado(reservas, dataSelecionada, inicioEscolhido, fimEscolhido)
+                          ? "Esse período está ocupado."
+                          : "Período disponível conforme as reservas carregadas.")}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -657,7 +628,10 @@ export default function DetalhesSalaPage() {
                     isLoading ||
                     carregandoHorarios ||
                     Boolean(erroHorarios) ||
-                    !horarioSelecionado
+                    !inicioEscolhido ||
+                    !fimEscolhido ||
+                    Boolean(validarPeriodo(dataSelecionada, inicioEscolhido, fimEscolhido)) ||
+                    intervaloOcupado(reservas, dataSelecionada, inicioEscolhido, fimEscolhido)
                   }
                   className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-primary hover:opacity-90 disabled:opacity-50 text-primary-foreground transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
