@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { RoomCard, type Sala } from "@/components/RoomCard";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
-import { Plus, AlertCircle, RefreshCw } from "lucide-react";
+import { Plus, AlertCircle, RefreshCw, X, Loader2, CheckCircle2 } from "lucide-react";
 import { roomsService } from "@/services/endpoints";
 import { apiError } from "@/services/api";
 
@@ -15,6 +15,8 @@ export default function SalasPage() {
 
   const [editando, setEditando] = useState<Sala | null>(null);
   const [formAberto, setFormAberto] = useState(false);
+  const [erroModal, setErroModal] = useState("");
+  const [mensagemSucesso, setMensagemSucesso] = useState("");
 
   const [nome, setNome] = useState("");
   const [capacidade, setCapacidade] = useState(4);
@@ -83,12 +85,15 @@ export default function SalasPage() {
     setCapacidade(sala?.capacidade ?? 4);
     setDescricao(sala?.descricao ?? "");
     setLocalizacao(sala?.localizacao ?? "");
+    setErroModal("");
+    setMensagemSucesso("");
     setFormAberto(true);
-    setErroApi("");
   }
 
   function fecharFormulario() {
+    if (salvando) return;
     setFormAberto(false);
+    setErroModal("");
     setEditando(null);
     setNome("");
     setCapacidade(4);
@@ -101,17 +106,22 @@ export default function SalasPage() {
 
     if (salvando) return;
 
-    setErroApi("");
+    setErroModal("");
 
     const nomeTratado = nome.trim();
 
     if (!nomeTratado) {
-      setErroApi("Informe o nome da sala.");
+      setErroModal("Informe o nome da sala.");
       return;
     }
 
     if (!Number.isInteger(capacidade) || capacidade < 1) {
-      setErroApi("Informe uma capacidade válida.");
+      setErroModal("Informe uma capacidade válida.");
+      return;
+    }
+
+    if (!localizacao.trim()) {
+      setErroModal("Informe a localização da sala.");
       return;
     }
 
@@ -131,10 +141,16 @@ export default function SalasPage() {
         await roomsService.create(payload);
       }
 
+      setSalvando(false);
       fecharFormulario();
-      await carregarSalas();
+      setMensagemSucesso(editando ? "Sala atualizada com sucesso!" : "Sala cadastrada com sucesso!");
+      try {
+        await carregarSalas();
+      } catch {
+        // O cadastro foi concluído; a falha de atualização é exibida na listagem.
+      }
     } catch (error) {
-      setErroApi(apiError(error));
+      setErroModal(apiError(error));
     } finally {
       setSalvando(false);
     }
@@ -176,108 +192,128 @@ export default function SalasPage() {
         </button>
       </div>
 
-      {/* Formulário de criação e edição */}
+      {/* Modal de criação e edição, no estilo da página de usuários */}
       {formAberto && (
-        <form
-          onSubmit={salvar}
-          className="p-5 border border-border rounded-xl grid gap-3 bg-card"
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !salvando) fecharFormulario();
+          }}
         >
-          <h2 className="font-semibold text-foreground">
-            {editando ? "Editar sala" : "Nova sala"}
-          </h2>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-modal-sala"
+            className="bg-card border border-border rounded-2xl max-w-md w-full p-6 space-y-5 shadow-xl text-card-foreground max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <h2 id="titulo-modal-sala" className="text-base font-bold text-foreground">
+                {editando ? "Editar Sala" : "Cadastrar Nova Sala"}
+              </h2>
+              <button
+                type="button"
+                aria-label="Fechar formulário"
+                disabled={salvando}
+                onClick={fecharFormulario}
+                className="text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-          <div className="grid gap-1">
-            <label
-              htmlFor="nome-sala"
-              className="text-xs font-medium"
-            >
-              Nome da sala
-            </label>
+            {erroModal && (
+              <div role="alert" className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{erroModal}</span>
+              </div>
+            )}
 
-            <input
-              id="nome-sala"
-              className="border border-input rounded-lg p-2 bg-background"
-              required
-              placeholder="Nome"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-            />
+            <form onSubmit={salvar} className="space-y-4">
+              <div>
+                <label htmlFor="nome-sala" className="block text-xs font-medium text-foreground mb-1.5">Nome da sala</label>
+                <input
+                  id="nome-sala"
+                  autoFocus
+                  required
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  placeholder="Ex: Sala de Reuniões A"
+                  disabled={salvando}
+                  className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="capacidade-sala" className="block text-xs font-medium text-foreground mb-1.5">Capacidade</label>
+                <input
+                  id="capacidade-sala"
+                  type="number"
+                  min={1}
+                  required
+                  value={capacidade}
+                  onChange={(e) => setCapacidade(Number(e.target.value))}
+                  disabled={salvando}
+                  className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="descricao-sala" className="block text-xs font-medium text-foreground mb-1.5">Descrição</label>
+                <textarea
+                  id="descricao-sala"
+                  rows={3}
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  placeholder="Ex: Sala com projetor para reuniões"
+                  disabled={salvando}
+                  className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-none"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="localizacao-sala" className="block text-xs font-medium text-foreground mb-1.5">Localização</label>
+                <input
+                  id="localizacao-sala"
+                  required
+                  value={localizacao}
+                  onChange={(e) => setLocalizacao(e.target.value)}
+                  placeholder="Ex: Bloco A - 2º andar"
+                  disabled={salvando}
+                  className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={fecharFormulario}
+                  disabled={salvando}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 border border-border transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={salvando}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-primary-foreground bg-primary hover:opacity-90 disabled:opacity-50 transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  {salvando ? (
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Salvando...</span></>
+                  ) : (
+                    <span>{editando ? "Salvar alterações" : "Cadastrar"}</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
+        </div>
+      )}
 
-          <div className="grid gap-1">
-            <label
-              htmlFor="capacidade-sala"
-              className="text-xs font-medium"
-            >
-              Capacidade
-            </label>
-
-            <input
-              id="capacidade-sala"
-              className="border border-input rounded-lg p-2 bg-background"
-              type="number"
-              min={1}
-              required
-              value={capacidade}
-              onChange={(e) =>
-                setCapacidade(Number(e.target.value))
-              }
-            />
-          </div>
-
-          <div className="grid gap-1">
-            <label
-              htmlFor="descricao-sala"
-              className="text-xs font-medium"
-            >
-              Descrição
-            </label>
-
-            <input
-              id="descricao-sala"
-              className="border border-input rounded-lg p-2 bg-background"
-              placeholder="Descrição"
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-            />
-          </div>
-
-          <div className="grid gap-1">
-            <label
-              htmlFor="localizacao-sala"
-              className="text-xs font-medium"
-            >
-              Localização
-            </label>
-
-            <input
-              id="localizacao-sala"
-              className="border border-input rounded-lg p-2 bg-background"
-              placeholder="Localização"
-              value={localizacao}
-              onChange={(e) => setLocalizacao(e.target.value)}
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={salvando}
-              className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              {salvando ? "Salvando..." : "Salvar"}
-            </button>
-
-            <button
-              type="button"
-              disabled={salvando}
-              onClick={fecharFormulario}
-              className="border border-border rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
+      {mensagemSucesso && (
+        <div role="status" className="p-3.5 rounded-xl bg-success/10 border border-success/20 text-success text-xs flex items-center gap-2.5">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{mensagemSucesso}</span>
+        </div>
       )}
 
       {/* Mensagens de erro */}
