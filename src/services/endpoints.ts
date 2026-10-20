@@ -8,7 +8,10 @@ import type { Usuario, Sala, Reserva } from "@/types";
 // ==========================================
 
 // O backend gera o ID ao criar uma reserva.
-export type CriarReservaPayload = Omit<Reserva, "id">;
+export type CriarReservaPayload = Pick<
+  Reserva,
+  "userId" | "roomId" | "startDate" | "endDate"
+>;
 
 // Permite enviar apenas os campos que serão alterados.
 export type AtualizarReservaPayload = Partial<CriarReservaPayload>;
@@ -251,8 +254,6 @@ export const roomsService = {
       status: "ATIVA",
     };
 
-    console.log("Dados enviados para API:", requestBody);
-
     const response = await api.post(
       "/api/rooms",
       requestBody
@@ -336,12 +337,19 @@ export const roomsService = {
   },
 
   // GET /api/rooms/{roomId}/reservations
-  reservations: async (id: string | number) => {
-    const response = await api.get(
-      `/api/rooms/${segment(id)}/reservations`
-    );
+  reservations: async (id: string | number): Promise<Reserva[]> => {
+    const response = await api.get<{
+      roomId: number;
+      reservations: Reserva[];
+    }>(`/api/rooms/${segment(id)}/reservations`);
 
-    return unwrapList<Reserva>(response.data);
+    if (!Array.isArray(response.data.reservations)) {
+      throw new Error(
+        "A API retornou um formato inválido para as reservas."
+      );
+    }
+
+    return response.data.reservations;
   },
 };
 
