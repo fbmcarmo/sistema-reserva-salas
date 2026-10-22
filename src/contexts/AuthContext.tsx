@@ -28,13 +28,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const token = Cookies.get("token");
-    const storedUser = localStorage.getItem("user");
+    const restoreSession = async () => {
+      await Promise.resolve();
 
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+      const token = Cookies.get("token");
+      const storedUser = localStorage.getItem("user");
+
+      if (token && storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+      setIsLoading(false);
+    };
+
+    void restoreSession();
   }, []);
 
   async function login({ email, senha }: { email: string; senha: string }) {

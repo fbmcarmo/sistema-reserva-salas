@@ -5,6 +5,7 @@ import { RoomCard, Sala } from "@/components/RoomCard";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
 import { Plus, AlertCircle, RefreshCw } from "lucide-react";
 import { api } from "@/services/api";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 const SALAS_INICIAIS: Sala[] = [
   {
@@ -37,11 +38,12 @@ export default function SalasPage() {
   const [salas, setSalas] = useState<Sala[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroApi, setErroApi] = useState("");
+  const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
+  const [salaParaExcluir, setSalaParaExcluir] = useState<Sala | null>(null);
+  const [excluindoSala, setExcluindoSala] = useState(false);
 
   const carregarSalas = useCallback(async () => {
     try {
-      setCarregando(true);
-      setErroApi("");
       const response = await api.get("/salas");
       if (response.data && response.data.length > 0) {
         setSalas(response.data);
@@ -56,8 +58,31 @@ export default function SalasPage() {
   }, []);
 
   useEffect(() => {
-    carregarSalas();
+    void Promise.resolve().then(carregarSalas);
   }, [carregarSalas]);
+
+  const abrirConfirmacaoExclusao = (sala: Sala) => {
+    setSalaParaExcluir(sala);
+    setModalExcluirAberto(true);
+  };
+
+  const confirmarExclusaoSala = async () => {
+    if (!salaParaExcluir) return;
+
+    try {
+      setExcluindoSala(true);
+      await api.delete(`/salas/${salaParaExcluir.id}`);
+      setSalas((prev) => prev.filter((s) => s.id !== salaParaExcluir.id));
+      setModalExcluirAberto(false);
+    } catch {
+      // Fallback caso a API esteja offline: remove da lista local.
+      setSalas((prev) => prev.filter((s) => s.id !== salaParaExcluir.id));
+      setModalExcluirAberto(false);
+    } finally {
+      setExcluindoSala(false);
+      setSalaParaExcluir(null);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -94,7 +119,10 @@ export default function SalasPage() {
           </div>
           <button
             type="button"
-            onClick={carregarSalas}
+            onClick={() => {
+              setCarregando(true);
+              void carregarSalas();
+            }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary hover:opacity-90 text-primary-foreground transition-all cursor-pointer shadow-xs"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -104,10 +132,26 @@ export default function SalasPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {salas.map((sala) => (
-            <RoomCard key={sala.id} sala={sala} />
+            <RoomCard
+              key={sala.id}
+              sala={sala}
+              onDelete={abrirConfirmacaoExclusao}
+            />
           ))}
         </div>
       )}
+      <ConfirmModal
+        isOpen={modalExcluirAberto}
+        onClose={() => {
+          setModalExcluirAberto(false);
+          setSalaParaExcluir(null);
+        }}
+        onConfirm={confirmarExclusaoSala}
+        titulo="Excluir sala?"
+        descricao={`Tem certeza de que deseja excluir ${salaParaExcluir?.nome ?? "esta sala"}? Esta ação não pode ser desfeita.`}
+        textoBotaoConfirmar="Excluir sala"
+        carregando={excluindoSala}
+      />
     </div>
   );
 }

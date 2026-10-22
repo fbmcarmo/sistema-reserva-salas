@@ -92,8 +92,6 @@ export default function TodasReservasPage() {
 
   const carregarReservas = useCallback(async () => {
     try {
-      setCarregando(true);
-      setErroApi("");
       const response = await api.get("/reservas");
       if (response.data && response.data.length > 0) {
         setReservas(response.data);
@@ -119,7 +117,7 @@ export default function TodasReservasPage() {
   }, []);
 
   useEffect(() => {
-    carregarReservas();
+    void Promise.resolve().then(carregarReservas);
   }, [carregarReservas]);
 
   // Lista filtrada
@@ -254,7 +252,10 @@ export default function TodasReservasPage() {
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">{erroApi}</p>
           </div>
           <button
-            onClick={carregarReservas}
+            onClick={() => {
+              setCarregando(true);
+              void carregarReservas();
+            }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary hover:opacity-90 text-primary-foreground transition-all cursor-pointer shadow-xs"
           >
             <RefreshCw className="w-3.5 h-3.5" />

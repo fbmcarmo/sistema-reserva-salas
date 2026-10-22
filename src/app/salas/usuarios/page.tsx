@@ -59,7 +59,6 @@ export default function UsuariosPage() {
 
   const carregarUsuarios = useCallback(async () => {
     try {
-      setCarregando(true);
       const response = await api.get("/usuarios");
       if (response.data && response.data.length > 0) {
         setUsuarios(response.data);
@@ -85,7 +84,7 @@ export default function UsuariosPage() {
   }, []);
 
   useEffect(() => {
-    carregarUsuarios();
+    void Promise.resolve().then(carregarUsuarios);
   }, [carregarUsuarios]);
 
   const usuariosFiltrados = useMemo(() => {

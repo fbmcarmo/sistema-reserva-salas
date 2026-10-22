@@ -1,0 +1,45 @@
+name: CI - Integração Contínua
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  qualidade-e-testes:
+    name: Verificação, Testes e Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar Dependências
+        run: npm ci
+
+      - name: Verificação de Tipos (TypeScript)
+        run: npx tsc --noEmit
+
+      - name: Testes Unitários e de Integração
+        run: npm test -- --passWithNoTests
+        env:
+          CI: true
+
+      - name: Execução dos Testes E2E (Cypress Headless)
+        uses: cypress-io/github-action@v6
+        with:
+          build: npm run build
+          start: npm start
+          wait-on: 'http://localhost:3000'
+        env:
+          NEXT_PUBLIC_API_URL: 'http://localhost:3000'
+
+      - name: Validação do Build de Produção
+        run: npm run build
