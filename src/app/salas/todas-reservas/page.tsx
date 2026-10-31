@@ -104,46 +104,36 @@ export default function TodasReservasPage() {
     return () => { ativo = false; };
   }, [buscarDados]);
 
-  // Chamado somente por ações do usuário, nunca diretamente pelo efeito.
+  // Atualiza os dados após operações de cancelamento ou nova tentativa.
   const carregarReservas = useCallback(async () => {
     setCarregando(true);
     setErroApi("");
-    setAviso("");
     try {
-      const response = await api.get("/reservas");
-      if (response.data && response.data.length > 0) {
-        setReservas(response.data);
-      } else {
-        setReservas(RESERVAS_MOCK);
-      }
-    } catch {
-      // Recupera reservas criadas localmente ou exibe a lista demonstrativa
-      const locais = localStorage.getItem("minhas_reservas");
-      if (locais) {
-        try {
-          const parseadas = JSON.parse(locais);
-          setReservas([...parseadas, ...RESERVAS_MOCK]);
-        } catch {
-          setReservas(RESERVAS_MOCK);
-        }
-      } else {
-        setReservas(RESERVAS_MOCK);
-      }
+      const dados = await buscarDados();
+      setReservas(dados.reservas);
+      setSalas(dados.salas);
+      setUsuarios(dados.usuarios);
+      setAviso(dados.aviso);
+    } catch (error) {
+      setErroApi(apiError(error));
+      throw error;
     } finally {
       setCarregando(false);
     }
   }, [buscarDados]);
 
-  useEffect(() => {
-    void Promise.resolve().then(carregarReservas);
-  }, [carregarReservas]);
+  const nomesSalas = useMemo(
+    () => new Map(salas.map((sala) => [String(sala.id), sala.nome])),
+    [salas]
+  );
 
-  // Lista filtrada
-  const reservasFiltradas = useMemo(() => {
-    return reservas.filter((item) => {
-      const nomeSala = item.nomeSala || item.sala?.nome || `Sala ${item.sala_id || item.salaId || ""}`;
-      const nomeUsuario = item.usuarioNome || item.usuario?.nome || "Colaborador";
-      const status = item.status || "Confirmada";
+  const nomesUsuarios = useMemo(
+    () => new Map(usuarios.map((usuario) => [
+      String(usuario.id),
+      usuario.nome || usuario.name || `Usuário ${usuario.id}`,
+    ])),
+    [usuarios]
+  );
 
   const obterNomeSala = (reserva: Reserva): string =>
     nomesSalas.get(String(reserva.roomId)) || `Sala ${reserva.roomId ?? "não identificada"}`;
@@ -263,8 +253,9 @@ export default function TodasReservasPage() {
           </div>
           <button
             onClick={() => {
-              setCarregando(true);
-              void carregarReservas();
+              void carregarReservas().catch(() => {
+                // A mensagem de erro já foi atualizada no estado.
+              });
             }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary hover:opacity-90 text-primary-foreground transition-all cursor-pointer shadow-xs"
           >
