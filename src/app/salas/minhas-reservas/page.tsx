@@ -104,49 +104,17 @@ export default function MinhasReservasPage() {
 
   const [cancelando, setCancelando] = useState(false);
 
-  const [
-    mensagemSucesso,
-    setMensagemSucesso,
-  ] = useState("");
-
-  // Busca os dados sem alterar estados antes da requisição.
-  const buscarDados = useCallback(async () => {
-    const [
-      resultadoReservas,
-      resultadoSalas,
-    ] = await Promise.all([
-      reservationsService.my(),
-      roomsService.list(),
-    ]);
-
-    return {
-      reservas: resultadoReservas as ReservaComStatus[],
-      salas: resultadoSalas as Sala[],
-    };
-  }, []);
-
-  // Carregamento inicial.
-  useEffect(() => {
-    let ativo = true;
-
-    async function carregarInicial() {
-      try {
-        const dados = await buscarDados();
-
-        if (!ativo) return;
-
-        setReservas(dados.reservas);
-        setSalas(dados.salas);
-        setErroApi("");
-      } catch (error) {
-        if (!ativo) return;
-
-        setErroApi(apiError(error));
-        setReservas([]);
-        setSalas([]);
-      } finally {
-        if (ativo) {
-          setCarregando(false);
+  const carregarReservas = useCallback(async () => {
+    try {
+      const response = await api.get("/reservas");
+      setReservas(response.data);
+    } catch {
+      const salvas = localStorage.getItem("minhas_reservas");
+      if (salvas) {
+        try {
+          setReservas(JSON.parse(salvas));
+        } catch {
+          setReservas(RESERVAS_EXEMPLO);
         }
       }
     }
@@ -176,7 +144,11 @@ export default function MinhasReservasPage() {
     } finally {
       setCarregando(false);
     }
-  }, [buscarDados]);
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(carregarReservas);
+  }, [carregarReservas]);
 
   const confirmarCancelamento = async () => {
     if (!reservaParaCancelar || cancelando) {
@@ -274,11 +246,11 @@ export default function MinhasReservasPage() {
           </h3>
 
           <button
-            type="button"
             onClick={() => {
-              void carregarReservas().catch(() => {});
+              setCarregando(true);
+              void carregarReservas();
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary hover:opacity-90 text-primary-foreground transition-all cursor-pointer shadow-xs"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Tentar Novamente

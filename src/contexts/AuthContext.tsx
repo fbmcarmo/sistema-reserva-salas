@@ -67,53 +67,19 @@ export function AuthProvider({
 
   // Restaura a sessão ao iniciar a aplicação.
   useEffect(() => {
-    let ativo = true;
+    const restoreSession = async () => {
+      await Promise.resolve();
 
-    async function inicializarAutenticacao() {
-      try {
-        const token = Cookies.get("token");
+      const token = Cookies.get("token");
+      const storedUser = localStorage.getItem("user");
 
-        if (!token) {
-          return;
-        }
-
-        const current = await authService.me();
-
-        if (!ativo) return;
-
-        setUser(current);
-
-        localStorage.setItem(
-          "user",
-          JSON.stringify(current)
-        );
-      } catch (error) {
-        if (!ativo) return;
-
-        console.error(
-          "Não foi possível restaurar a sessão:",
-          error
-        );
-
-        Cookies.remove("token", {
-          path: "/",
-        });
-
-        localStorage.removeItem("user");
-
-        setUser(null);
-      } finally {
-        if (ativo) {
-          setIsLoading(false);
-        }
+      if (token && storedUser) {
+        setUser(JSON.parse(storedUser));
       }
-    }
-
-    void inicializarAutenticacao();
-
-    return () => {
-      ativo = false;
+      setIsLoading(false);
     };
+
+    void restoreSession();
   }, []);
 
   // Realiza o login.

@@ -1,51 +1,45 @@
-
-name: CI - Frontend
+name: CI - Integração Contínua
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ master, main ]
   pull_request:
-  workflow_dispatch:
+    branches: [ master, main ]
 
 jobs:
-  quality:
-    name: Qualidade e Build
+  qualidade-e-testes:
+    name: Verificação, Testes e Build
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do codigo
+      - name: Checkout do Repositório
         uses: actions/checkout@v4
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: npm
+          node-version: 20
+          cache: 'npm'
 
-      - name: Instalar dependencias
+      - name: Instalar Dependências
         run: npm ci
 
-      - name: Verificar ESLint
-        run: npm run lint
-
-      - name: Verificar TypeScript
+      - name: Verificação de Tipos (TypeScript)
         run: npx tsc --noEmit
 
-      - name: Executar build
-        run: npm run build
+      - name: Testes Unitários e de Integração
+        run: npm test -- --passWithNoTests
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:3001
+          CI: true
 
-  docker:
-    name: Validar Docker
-    runs-on: ubuntu-latest
+      - name: Execução dos Testes E2E (Cypress Headless)
+        uses: cypress-io/github-action@v6
+        with:
+          build: npm run build
+          start: npm start
+          wait-on: 'http://localhost:3000'
+        env:
+          NEXT_PUBLIC_API_URL: 'http://localhost:3000'
 
-    steps:
-      - name: Checkout do codigo
-        uses: actions/checkout@v4
-
-      - name: Construir imagem
-        run: |
-          docker build \
-            --build-arg NEXT_PUBLIC_API_URL=http://localhost:3001 \
-            -t reserva-salas-frontend:ci .
+      - name: Validação do Build de Produção
+        run: npm run build

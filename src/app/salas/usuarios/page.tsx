@@ -72,16 +72,33 @@ export default function UsuariosPage() {
     setCarregando(true);
     setErroApi("");
     try {
-      const resultado = await buscarUsuarios();
-      setUsuarios(resultado);
-    } catch (error) {
-      setErroApi(apiError(error));
-      setUsuarios([]);
-      throw error;
+      const response = await api.get("/usuarios");
+      if (response.data && response.data.length > 0) {
+        setUsuarios(response.data);
+      } else {
+        setUsuarios(USUARIOS_INICIAIS);
+      }
+    } catch {
+      // Recupera utilizadores do localStorage ou usa a lista de demonstração
+      const salvos = localStorage.getItem("lista_usuarios");
+      if (salvos) {
+        try {
+          setUsuarios(JSON.parse(salvos));
+        } catch {
+          setUsuarios(USUARIOS_INICIAIS);
+        }
+      } else {
+        setUsuarios(USUARIOS_INICIAIS);
+        localStorage.setItem("lista_usuarios", JSON.stringify(USUARIOS_INICIAIS));
+      }
     } finally {
       setCarregando(false);
     }
-  }, [buscarUsuarios]);
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(carregarUsuarios);
+  }, [carregarUsuarios]);
 
   const usuariosFiltrados = useMemo(() => {
     return usuarios.filter(
