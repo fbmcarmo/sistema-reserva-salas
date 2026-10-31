@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { api } from "@/services/api";
+import { useState, useEffect, useMemo, useCallback, type FormEvent } from "react";
+import { usersService, authService } from "@/services/endpoints";
+import { apiError } from "@/services/api";
 import {
   Plus,
   Search,
@@ -21,27 +22,6 @@ interface Usuario {
   role?: "ADMIN" | "USER" | string;
 }
 
-const USUARIOS_INICIAIS: Usuario[] = [
-  {
-    id: 1,
-    nome: "May S",
-    email: "mayarasoaresdev@gmail.com",
-    role: "ADMIN",
-  },
-  {
-    id: 2,
-    nome: "Maria Silva",
-    email: "mariasilva123@gmail.com",
-    role: "USER",
-  },
-  {
-    id: 3,
-    nome: "Carlos Eduardo",
-    email: "carlos.eduardo@empresa.com",
-    role: "USER",
-  },
-];
-
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -56,8 +36,41 @@ export default function UsuariosPage() {
   const [salvando, setSalvando] = useState(false);
   const [erroModal, setErroModal] = useState("");
   const [mensagemSucesso, setMensagemSucesso] = useState("");
+  const [erroApi, setErroApi] = useState("");
+
+  const [removendoId, setRemovendoId] = useState<string | number | null>(null);
+
+  const buscarUsuarios = useCallback(async (): Promise<Usuario[]> => {
+    return usersService.list();
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarInicial() {
+      try {
+        const resultado = await buscarUsuarios();
+        if (!ativo) return;
+        setUsuarios(resultado);
+        setErroApi("");
+      } catch (error) {
+        if (!ativo) return;
+        setErroApi(apiError(error));
+        setUsuarios([]);
+      } finally {
+        if (ativo) setCarregando(false);
+      }
+    }
+
+    void carregarInicial();
+    return () => {
+      ativo = false;
+    };
+  }, [buscarUsuarios]);
 
   const carregarUsuarios = useCallback(async () => {
+    setCarregando(true);
+    setErroApi("");
     try {
       const response = await api.get("/usuarios");
       if (response.data && response.data.length > 0) {
@@ -95,7 +108,7 @@ export default function UsuariosPage() {
     );
   }, [usuarios, busca]);
 
-  const handleCriarUsuario = async (e: React.FormEvent) => {
+  const handleCriarUsuario = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErroModal("");
 
@@ -106,44 +119,50 @@ export default function UsuariosPage() {
 
     setSalvando(true);
 
-    const novoItem: Usuario = {
-      id: Date.now(),
-      nome: novoNome.trim(),
-      email: novoEmail.trim(),
-      role: novoRole,
-    };
-
     try {
-      await api.post("/usuarios", {
-        nome: novoItem.nome,
-        email: novoItem.email,
+      await authService.register({
+        nome: novoNome.trim(),
+        email: novoEmail.trim(),
         senha: novaSenha,
-        role: novoItem.role,
       });
-      await carregarUsuarios();
-    } catch {
-      // Fallback local se o backend estiver desconectado
-      const atualizados = [novoItem, ...usuarios];
-      setUsuarios(atualizados);
-      localStorage.setItem("lista_usuarios", JSON.stringify(atualizados));
-    } finally {
-      setSalvando(false);
+
       setModalAberto(false);
       setNovoNome("");
       setNovoEmail("");
       setNovaSenha("");
       setNovoRole("USER");
       setMensagemSucesso("Usuário cadastrado com sucesso!");
-      setTimeout(() => setMensagemSucesso(""), 3500);
+
+      try {
+        await carregarUsuarios();
+      } catch {
+        // O cadastro foi concluído, mas a lista não pôde ser atualizada.
+      }
+    } catch (error) {
+      setErroModal(apiError(error));
+    } finally {
+      setSalvando(false);
     }
   };
 
-  const handleRemoverUsuario = (id: string | number) => {
-    const atualizados = usuarios.filter((u) => u.id !== id);
-    setUsuarios(atualizados);
-    localStorage.setItem("lista_usuarios", JSON.stringify(atualizados));
-    setMensagemSucesso("Usuário removido.");
-    setTimeout(() => setMensagemSucesso(""), 3000);
+  const handleRemoverUsuario = async (id: string | number) => {
+    if (removendoId !== null || !window.confirm("Excluir usuário?")) return;
+    setRemovendoId(id);
+    setErroApi("");
+    setMensagemSucesso("");
+    try {
+      await usersService.remove(id);
+      setMensagemSucesso("Usuário removido.");
+      try {
+        await carregarUsuarios();
+      } catch {
+        // A exclusão foi concluída, mas a atualização da lista falhou.
+      }
+    } catch (error) {
+      setErroApi(apiError(error));
+    } finally {
+      setRemovendoId(null);
+    }
   };
 
   return (
@@ -169,6 +188,7 @@ export default function UsuariosPage() {
         </button>
       </div>
 
+      {erroApi && <p role="alert" className="text-destructive">{erroApi}</p>}
       {mensagemSucesso && (
         <div className="p-3.5 rounded-xl bg-success/10 border border-success/20 text-success text-xs flex items-center gap-2.5">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
@@ -232,9 +252,10 @@ export default function UsuariosPage() {
 
                     <button
                       type="button"
-                      onClick={() => handleRemoverUsuario(u.id)}
+                      onClick={() => void handleRemoverUsuario(u.id)}
+                      disabled={removendoId !== null}
                       title="Remover usuário"
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -313,7 +334,7 @@ export default function UsuariosPage() {
                   required
                   value={novaSenha}
                   onChange={(e) => setNovaSenha(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres"
                   className="w-full bg-background border border-input rounded-xl px-3.5 py-2.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
                 />
               </div>
@@ -330,6 +351,10 @@ export default function UsuariosPage() {
                   <option value="USER">Colaborador (Reserva salas)</option>
                   <option value="ADMIN">Administrador (Acesso total)</option>
                 </select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  O cadastro atual não envia o nível de acesso à API.
+                  A atribuição de permissões deve ser feita pelo backend.
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3">

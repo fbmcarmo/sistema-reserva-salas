@@ -1,6 +1,9 @@
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, type FormEvent } from "react";
+import { usersService } from "@/services/endpoints";
+import { apiError } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { api } from "@/services/api";
@@ -106,6 +109,7 @@ export default function PerfilPage() {
             </div>
           </div>
 
+          {/* E-mail */}
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">
               E-mail corporativo
@@ -122,6 +126,7 @@ export default function PerfilPage() {
             </div>
           </div>
 
+          {/* Nova senha */}
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">
               Nível de permissão
@@ -137,6 +142,7 @@ export default function PerfilPage() {
             </div>
           </div>
 
+          {/* Botão salvar */}
           <div className="pt-2">
             <button
               type="submit"
@@ -186,6 +192,42 @@ export default function PerfilPage() {
         textoBotaoConfirmar="Excluir minha conta"
         carregando={excluindoPerfil}
       />
+    </div>
+  );
+}
+
+export default function MeuPerfilPage() {
+  const { user, isLoading, refreshUser } = useAuth();
+
+  return (
+    <div className="space-y-8">
+      <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+        Meu perfil
+      </h1>
+
+      {isLoading ? (
+        <div className="max-w-xl bg-card border border-border/80 rounded-2xl p-8 flex items-center justify-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground">
+            Carregando perfil...
+          </span>
+        </div>
+      ) : !user ? (
+        <div
+          role="alert"
+          className="max-w-xl p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm"
+        >
+          Não foi possível carregar o usuário autenticado.
+        </div>
+      ) : (
+        <FormularioPerfil
+          key={String(user.id)}
+          userId={user.id}
+          nomeInicial={user.nome ?? ""}
+          emailInicial={user.email ?? ""}
+          refreshUser={refreshUser}
+        />
+      )}
     </div>
   );
 }
