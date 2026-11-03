@@ -2,11 +2,11 @@ import { defineConfig } from "cypress";
 
 export default defineConfig({
   e2e: {
-    baseUrl: "http://localhost:3000",
+    baseUrl:
+      process.env.CYPRESS_BASE_URL ||
+      "https://sistema-reserva-salas-ten.vercel.app",
+
     viewportWidth: 1280,
     viewportHeight: 720,
-    setupNodeEvents(on, config) {
-      // listeners de eventos do node
-    },
   },
 });
