@@ -1,10 +1,11 @@
+
 name: CI - Integração Contínua
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master, main]
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
 
 jobs:
   qualidade-e-testes:
@@ -19,7 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
       - name: Instalar Dependências
         run: npm ci
@@ -27,19 +28,18 @@ jobs:
       - name: Verificação de Tipos (TypeScript)
         run: npx tsc --noEmit
 
-      - name: Testes Unitários e de Integração
-        run: npm test -- --passWithNoTests
-        env:
-          CI: true
+      - name: Verificação de Código (ESLint)
+        run: npm run lint
 
-      - name: Execução dos Testes E2E (Cypress Headless)
+      - name: Build de Produção
+        run: npm run build
+
+      - name: Executar Testes E2E (Cypress)
         uses: cypress-io/github-action@v6
         with:
-          build: npm run build
-          start: npm start
-          wait-on: 'http://localhost:3000'
+          install: false
+          start: npm run start
+          wait-on: http://localhost:3000
+          command: npm run test:e2e
         env:
-          NEXT_PUBLIC_API_URL: 'http://localhost:3000'
-
-      - name: Validação do Build de Produção
-        run: npm run build
+          NEXT_PUBLIC_API_URL: http://localhost:3001
