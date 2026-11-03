@@ -1,3 +1,4 @@
+
 describe("Gestão de Salas e Perfil", () => {
   beforeEach(() => {
     cy.intercept("POST", "**/api/auth/login", {
@@ -21,7 +22,7 @@ describe("Gestão de Salas e Perfil", () => {
       },
     }).as("usuarioAutenticado");
 
-    cy.intercept("GET", "**/api/rooms", {
+    cy.intercept("GET", "**/api/rooms*", {
       statusCode: 200,
       body: [
         {
@@ -38,20 +39,28 @@ describe("Gestão de Salas e Perfil", () => {
 
     cy.visit("/login");
 
-    cy.get('input[name="email"]').type(
-      "teste.cypress@example.com"
-    );
+    cy.get('input[type="email"]')
+      .should("be.visible")
+      .type("teste.cypress@example.com");
 
-    cy.get('input[name="password"]').type("Teste@123456");
+    cy.get('input[type="password"]')
+      .should("be.visible")
+      .type("Teste@123456");
 
-    cy.get('button[type="submit"]').click();
+    cy.get('button[type="submit"]')
+      .click();
 
-    cy.wait("@login");
+    cy.wait("@login")
+      .its("response.statusCode")
+      .should("eq", 200);
 
-    cy.url().should("include", "/salas");
+    cy.url({ timeout: 15000 })
+      .should("include", "/salas");
   });
 
   it("deve exibir as salas cadastradas", () => {
-    cy.contains("Sala Atlântico").should("be.visible");
+    cy.contains("Sala Atlântico", {
+      timeout: 15000,
+    }).should("be.visible");
   });
 });

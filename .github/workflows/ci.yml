@@ -47,11 +47,10 @@ jobs:
       - name: Build do Next.js
         run: npm run build
 
-      - name: Executar testes Cypress na Vercel
+      - name: Executar testes Cypress
         uses: cypress-io/github-action@v6
         with:
           install: false
-          browser: chrome
           command: npx cypress run --browser chrome
         env:
           CYPRESS_baseUrl: https://sistema-reserva-salas-ten.vercel.app
