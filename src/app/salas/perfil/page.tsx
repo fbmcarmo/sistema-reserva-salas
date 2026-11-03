@@ -22,11 +22,19 @@ export default function PerfilPage() {
   const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
   const [excluindoPerfil, setExcluindoPerfil] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      setNome(user.nome || "May S");
-      setEmail(user.email || "may@empresa.com");
-    }
+    useEffect(() => {
+    let ativo = true;
+
+    Promise.resolve().then(() => {
+      if (ativo && user) {
+        setNome(user.nome ?? "");
+        setEmail(user.email ?? "");
+      }
+    });
+
+    return () => {
+      ativo = false;
+    };
   }, [user]);
 
   const handleSalvarPerfil = async (e: FormEvent<HTMLFormElement>) => {

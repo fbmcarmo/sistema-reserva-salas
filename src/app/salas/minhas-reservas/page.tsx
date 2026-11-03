@@ -125,8 +125,18 @@ export default function MinhasReservasPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void carregarReservas().catch(() => {});
+    useEffect(() => {
+    let ativo = true;
+
+    Promise.resolve().then(() => {
+      if (ativo) {
+        void carregarReservas().catch(() => {});
+      }
+    });
+
+    return () => {
+      ativo = false;
+    };
   }, [carregarReservas]);
 
   const confirmarCancelamento = async () => {
