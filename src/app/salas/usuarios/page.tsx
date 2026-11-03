@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, type FormEvent } from "react";
 import { usersService, authService } from "@/services/endpoints";
 import { apiError } from "@/services/api";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import {
   Plus,
   Search,
@@ -38,7 +39,9 @@ export default function UsuariosPage() {
   const [mensagemSucesso, setMensagemSucesso] = useState("");
   const [erroApi, setErroApi] = useState("");
 
-  const [removendoId, setRemovendoId] = useState<string | number | null>(null);
+  const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<Usuario | null>(null);
+  const [modalExcluirAberto, setModalExcluirAberto] = useState(false);
+  const [excluindoUsuario, setExcluindoUsuario] = useState(false);
 
   const buscarUsuarios = useCallback(async (): Promise<Usuario[]> => {
     return usersService.list();
@@ -128,23 +131,39 @@ export default function UsuariosPage() {
     }
   };
 
-  const handleRemoverUsuario = async (id: string | number) => {
-    if (removendoId !== null || !window.confirm("Excluir usuário?")) return;
-    setRemovendoId(id);
+  const abrirConfirmacaoExclusao = (usuario: Usuario) => {
+    setUsuarioParaExcluir(usuario);
     setErroApi("");
     setMensagemSucesso("");
+    setModalExcluirAberto(true);
+  };
+
+  const fecharConfirmacaoExclusao = () => {
+    if (excluindoUsuario) return;
+    setModalExcluirAberto(false);
+    setUsuarioParaExcluir(null);
+  };
+
+  const confirmarExclusaoUsuario = async () => {
+    if (!usuarioParaExcluir || excluindoUsuario) return;
+
+    const id = usuarioParaExcluir.id;
+    setExcluindoUsuario(true);
+    setErroApi("");
+    setMensagemSucesso("");
+
     try {
       await usersService.remove(id);
-      setMensagemSucesso("Usuário removido.");
-      try {
-        await carregarUsuarios();
-      } catch {
-        // A exclusão foi concluída, mas a atualização da lista falhou.
-      }
+      setUsuarios((anteriores) =>
+        anteriores.filter((usuario) => String(usuario.id) !== String(id))
+      );
+      setMensagemSucesso("Usuário excluído com sucesso!");
+      setModalExcluirAberto(false);
+      setUsuarioParaExcluir(null);
     } catch (error) {
       setErroApi(apiError(error));
     } finally {
-      setRemovendoId(null);
+      setExcluindoUsuario(false);
     }
   };
 
@@ -235,9 +254,10 @@ export default function UsuariosPage() {
 
                     <button
                       type="button"
-                      onClick={() => void handleRemoverUsuario(u.id)}
-                      disabled={removendoId !== null}
-                      title="Remover usuário"
+                      onClick={() => abrirConfirmacaoExclusao(u)}
+                      disabled={excluindoUsuario}
+                      title="Excluir usuário"
+                      aria-label={`Excluir usuário ${u.nome}`}
                       className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -254,6 +274,16 @@ export default function UsuariosPage() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={modalExcluirAberto}
+        onClose={fecharConfirmacaoExclusao}
+        onConfirm={confirmarExclusaoUsuario}
+        titulo="Excluir usuário?"
+        descricao={`Tem certeza de que deseja excluir ${usuarioParaExcluir?.nome ?? "este usuário"}? Esta ação não pode ser desfeita.`}
+        textoBotaoConfirmar="Excluir usuário"
+        carregando={excluindoUsuario}
+      />
 
       {/* Modal Novo Usuário */}
       {modalAberto && (
