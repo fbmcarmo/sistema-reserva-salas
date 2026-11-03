@@ -7,7 +7,6 @@ on:
       - main
       - master
       - feature/ci
-
   pull_request:
     branches:
       - main
@@ -22,8 +21,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
       CI: "true"
+      NEXT_PUBLIC_API_URL: https://sistema-reserva-salas-api.onrender.com
 
     steps:
       - name: Checkout do repositório
@@ -47,21 +46,20 @@ jobs:
       - name: Build do Next.js
         run: npm run build
 
-      - name: Iniciar Next.js
+      - name: Iniciar servidor Next.js
         run: |
           npm run start -- --hostname 127.0.0.1 --port 3000 > next.log 2>&1 &
           echo $! > next.pid
 
-      - name: Aguardar Next.js
+      - name: Aguardar servidor Next.js
         run: |
           for i in $(seq 1 30); do
             if curl --fail --silent --output /dev/null http://127.0.0.1:3000; then
-              echo "Next.js iniciado com sucesso!"
+              echo "Frontend iniciado!"
               exit 0
             fi
 
             if ! kill -0 "$(cat next.pid)" 2>/dev/null; then
-              echo "O processo Next.js foi encerrado."
               cat next.log
               exit 1
             fi
@@ -69,7 +67,6 @@ jobs:
             sleep 2
           done
 
-          echo "Timeout aguardando Next.js."
           cat next.log
           exit 1
 
@@ -81,7 +78,7 @@ jobs:
         env:
           CYPRESS_baseUrl: http://127.0.0.1:3000
 
-      - name: Exibir logs do Next.js em caso de falha
+      - name: Exibir logs em caso de falha
         if: failure()
         run: |
           if [ -f next.log ]; then
