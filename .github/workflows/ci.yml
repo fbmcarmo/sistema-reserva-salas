@@ -47,11 +47,15 @@ jobs:
       - name: Build do Next.js
         run: npm run build
 
-      - name: Executar testes Cypress
+      
+      - name: Testes E2E
         uses: cypress-io/github-action@v6
         with:
           install: false
           command: npx cypress run --browser chrome
+        env:
+          CYPRESS_TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          CYPRESS_TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
         env:
           CYPRESS_baseUrl: https://sistema-reserva-salas-ten.vercel.app
 
