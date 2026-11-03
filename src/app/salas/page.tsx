@@ -4,36 +4,10 @@
 import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { RoomCard, type Sala } from "@/components/RoomCard";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
-import { Plus, AlertCircle, RefreshCw } from "lucide-react";
-import { api } from "@/services/api";
+import { Plus, AlertCircle, RefreshCw, X, Loader2, CheckCircle2 } from "lucide-react";
+import { roomsService } from "@/services/endpoints";
+import { apiError } from "@/services/api";
 import { ConfirmModal } from "@/components/ConfirmModal";
-
-const SALAS_INICIAIS: Sala[] = [
-  {
-    id: 1,
-    nome: "Sala Atlântico",
-    capacidade: 8,
-    localizacao: "1º andar",
-    descricao: "TV e quadro branco",
-    disponivel: true,
-  },
-  {
-    id: 2,
-    nome: "Sala Sertão",
-    capacidade: 4,
-    localizacao: "2º andar",
-    descricao: "Ideal para reuniões rápidas",
-    disponivel: true,
-  },
-  {
-    id: 3,
-    nome: "Auditório",
-    capacidade: 40,
-    localizacao: "Térreo",
-    descricao: "Projetor e som",
-    disponivel: true,
-  },
-];
 
 export default function SalasPage() {
   const [salas, setSalas] = useState<Sala[]>([]);
@@ -54,7 +28,6 @@ export default function SalasPage() {
   const [localizacao, setLocalizacao] = useState("");
 
   const [salvando, setSalvando] = useState(false);
-  const [removendoId, setRemovendoId] = useState<string | number | null>(null);
 
   // Busca os dados da API sem atualizar o estado
   // de forma síncrona dentro do useEffect.
@@ -157,22 +130,26 @@ export default function SalasPage() {
 
     setSalvando(true);
 
+    const payload = {
+      nome: nomeTratado,
+      capacidade,
+      descricao: descricao.trim(),
+      localizacao: localizacao.trim(),
+      recursos: [],
+      status: true,
+    };
+
     try {
-      const response = await api.get("/salas");
-      if (response.data && response.data.length > 0) {
-        setSalas(response.data);
+      if (editando) {
+        await roomsService.update(editando.id, payload);
       } else {
         await roomsService.create(payload);
       }
 
-      setSalvando(false);
-      fecharFormulario();
+      setFormAberto(false);
+      setEditando(null);
       setMensagemSucesso(editando ? "Sala atualizada com sucesso!" : "Sala cadastrada com sucesso!");
-      try {
-        await carregarSalas();
-      } catch {
-        // O cadastro foi concluído; a falha de atualização é exibida na listagem.
-      }
+      await carregarSalas();
     } catch (error) {
       setErroModal(apiError(error));
     } finally {
@@ -180,30 +157,26 @@ export default function SalasPage() {
     }
   }
 
-  useEffect(() => {
-    void Promise.resolve().then(carregarSalas);
-  }, [carregarSalas]);
-
   const abrirConfirmacaoExclusao = (sala: Sala) => {
     setSalaParaExcluir(sala);
     setModalExcluirAberto(true);
   };
 
   const confirmarExclusaoSala = async () => {
-    if (!salaParaExcluir) return;
+    if (!salaParaExcluir || excluindoSala) return;
 
+    setExcluindoSala(true);
+    setErroApi("");
     try {
-      setExcluindoSala(true);
-      await api.delete(`/salas/${salaParaExcluir.id}`);
-      setSalas((prev) => prev.filter((s) => s.id !== salaParaExcluir.id));
+      await roomsService.remove(salaParaExcluir.id);
+      setSalas((prev) => prev.filter((s) => String(s.id) !== String(salaParaExcluir.id)));
+      setMensagemSucesso("Sala excluída com sucesso!");
       setModalExcluirAberto(false);
-    } catch {
-      // Fallback caso a API esteja offline: remove da lista local.
-      setSalas((prev) => prev.filter((s) => s.id !== salaParaExcluir.id));
-      setModalExcluirAberto(false);
+      setSalaParaExcluir(null);
+    } catch (error) {
+      setErroApi(apiError(error));
     } finally {
       setExcluindoSala(false);
-      setSalaParaExcluir(null);
     }
   };
 
@@ -383,7 +356,6 @@ export default function SalasPage() {
           <button
             type="button"
             onClick={() => {
-              setCarregando(true);
               void carregarSalas();
             }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary hover:opacity-90 text-primary-foreground transition-all cursor-pointer shadow-xs"

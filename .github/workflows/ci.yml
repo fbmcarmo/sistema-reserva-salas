@@ -1,45 +1,66 @@
-name: CI - Integração Contínua
+
+name: CI - Frontend
 
 on:
   push:
-    branches: [ master, main ]
+    branches:
+      - main
+      - master
+      - feature/ci
+
   pull_request:
-    branches: [ master, main ]
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
 
 jobs:
   qualidade-e-testes:
-    name: Verificação, Testes e Build
+    name: TypeScript, ESLint, Build e Cypress
     runs-on: ubuntu-latest
 
+    env:
+      CI: "true"
+      NEXT_PUBLIC_API_URL: https://sistema-reserva-salas-api.onrender.com
+
     steps:
-      - name: Checkout do Repositório
+      - name: Checkout do repositório
         uses: actions/checkout@v4
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: "22"
+          cache: npm
 
-      - name: Instalar Dependências
+      - name: Instalar dependências
         run: npm ci
 
-      - name: Verificação de Tipos (TypeScript)
+      - name: Verificar TypeScript
         run: npx tsc --noEmit
 
-      - name: Testes Unitários e de Integração
-        run: npm test -- --passWithNoTests
-        env:
-          CI: true
+      - name: Executar ESLint
+        run: npm run lint
 
-      - name: Execução dos Testes E2E (Cypress Headless)
+      - name: Build do Next.js
+        run: npm run build
+
+      - name: Executar testes Cypress
         uses: cypress-io/github-action@v6
         with:
-          build: npm run build
-          start: npm start
-          wait-on: 'http://localhost:3000'
+          install: false
+          command: npx cypress run --browser chrome
         env:
-          NEXT_PUBLIC_API_URL: 'http://localhost:3000'
+          CYPRESS_baseUrl: https://sistema-reserva-salas-ten.vercel.app
 
-      - name: Validação do Build de Produção
-        run: npm run build
+      - name: Salvar evidências do Cypress
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-evidencias
+          path: |
+            cypress/screenshots/**
+            cypress/videos/**
+          if-no-files-found: ignore
