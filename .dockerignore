@@ -14,3 +14,4 @@ docker-compose*.yml
 .env.*
 !.env.example
 README.md
+cypress.env.json
