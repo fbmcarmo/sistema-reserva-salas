@@ -51,7 +51,8 @@ jobs:
         uses: cypress-io/github-action@v6
         with:
           install: false
-          command: npx cypress run
+          browser: chrome
+          command: npx cypress run --browser chrome
         env:
           CYPRESS_baseUrl: https://sistema-reserva-salas-ten.vercel.app
 
@@ -61,6 +62,6 @@ jobs:
         with:
           name: cypress-evidencias
           path: |
-            cypress/screenshots
-            cypress/videos
+            cypress/screenshots/**
+            cypress/videos/**
           if-no-files-found: ignore
