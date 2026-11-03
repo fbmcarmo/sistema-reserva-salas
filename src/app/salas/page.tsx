@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, type FormEvent } from "react";
 import { RoomCard, type Sala } from "@/components/RoomCard";
 import { RoomSkeleton } from "@/components/RoomSkeleton";
 import { Plus, AlertCircle, RefreshCw } from "lucide-react";
+import { X, Loader2, CheckCircle2 } from "lucide-react";
 import { api } from "@/services/api";
 import { ConfirmModal } from "@/components/ConfirmModal";
 

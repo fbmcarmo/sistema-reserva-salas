@@ -104,42 +104,21 @@ export default function MinhasReservasPage() {
 
   const [cancelando, setCancelando] = useState(false);
 
-  const carregarReservas = useCallback(async () => {
-    try {
-      const response = await api.get("/reservas");
-      setReservas(response.data);
-    } catch {
-      const salvas = localStorage.getItem("minhas_reservas");
-      if (salvas) {
-        try {
-          setReservas(JSON.parse(salvas));
-        } catch {
-          setReservas(RESERVAS_EXEMPLO);
-        }
-      }
-    }
+  const [mensagemSucesso, setMensagemSucesso] = useState("");
 
-    void carregarInicial();
-
-    return () => {
-      ativo = false;
-    };
-  }, [buscarDados]);
-
-  // Recarregamento manual ou após cancelamento.
   const carregarReservas = useCallback(async () => {
     setCarregando(true);
     setErroApi("");
-
     try {
-      const dados = await buscarDados();
-
-      setReservas(dados.reservas);
-      setSalas(dados.salas);
+      const [reservasResultado, salasResultado] = await Promise.allSettled([
+        reservationsService.my(),
+        roomsService.list(),
+      ]);
+      if (reservasResultado.status === "rejected") throw reservasResultado.reason;
+      setReservas(reservasResultado.value);
+      setSalas(salasResultado.status === "fulfilled" ? salasResultado.value : []);
     } catch (error) {
       setErroApi(apiError(error));
-      setReservas([]);
-      setSalas([]);
       throw error;
     } finally {
       setCarregando(false);
@@ -147,7 +126,7 @@ export default function MinhasReservasPage() {
   }, []);
 
   useEffect(() => {
-    void Promise.resolve().then(carregarReservas);
+    void carregarReservas().catch(() => {});
   }, [carregarReservas]);
 
   const confirmarCancelamento = async () => {
@@ -248,7 +227,7 @@ export default function MinhasReservasPage() {
           <button
             onClick={() => {
               setCarregando(true);
-              void carregarReservas();
+              void carregarReservas().catch(() => {});
             }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-primary hover:opacity-90 text-primary-foreground transition-all cursor-pointer shadow-xs"
           >

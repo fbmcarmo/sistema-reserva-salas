@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { usersService } from "@/services/endpoints";
 import { apiError } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,7 +29,7 @@ export default function PerfilPage() {
     }
   }, [user]);
 
-  const handleSalvarPerfil = async (e: React.FormEvent) => {
+  const handleSalvarPerfil = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSalvando(true);
     setMensagemSucesso("");
@@ -196,38 +196,3 @@ export default function PerfilPage() {
   );
 }
 
-export default function MeuPerfilPage() {
-  const { user, isLoading, refreshUser } = useAuth();
-
-  return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
-        Meu perfil
-      </h1>
-
-      {isLoading ? (
-        <div className="max-w-xl bg-card border border-border/80 rounded-2xl p-8 flex items-center justify-center gap-3">
-          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-          <span className="text-sm text-muted-foreground">
-            Carregando perfil...
-          </span>
-        </div>
-      ) : !user ? (
-        <div
-          role="alert"
-          className="max-w-xl p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm"
-        >
-          Não foi possível carregar o usuário autenticado.
-        </div>
-      ) : (
-        <FormularioPerfil
-          key={String(user.id)}
-          userId={user.id}
-          nomeInicial={user.nome ?? ""}
-          emailInicial={user.email ?? ""}
-          refreshUser={refreshUser}
-        />
-      )}
-    </div>
-  );
-}

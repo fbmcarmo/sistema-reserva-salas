@@ -68,37 +68,20 @@ export default function UsuariosPage() {
     };
   }, [buscarUsuarios]);
 
+  // Recarrega os dados reais da API após cadastrar ou excluir um usuário.
   const carregarUsuarios = useCallback(async () => {
     setCarregando(true);
     setErroApi("");
     try {
-      const response = await api.get("/usuarios");
-      if (response.data && response.data.length > 0) {
-        setUsuarios(response.data);
-      } else {
-        setUsuarios(USUARIOS_INICIAIS);
-      }
-    } catch {
-      // Recupera utilizadores do localStorage ou usa a lista de demonstração
-      const salvos = localStorage.getItem("lista_usuarios");
-      if (salvos) {
-        try {
-          setUsuarios(JSON.parse(salvos));
-        } catch {
-          setUsuarios(USUARIOS_INICIAIS);
-        }
-      } else {
-        setUsuarios(USUARIOS_INICIAIS);
-        localStorage.setItem("lista_usuarios", JSON.stringify(USUARIOS_INICIAIS));
-      }
+      const resultado = await buscarUsuarios();
+      setUsuarios(resultado);
+    } catch (error) {
+      setErroApi(apiError(error));
+      throw error;
     } finally {
       setCarregando(false);
     }
-  }, []);
-
-  useEffect(() => {
-    void Promise.resolve().then(carregarUsuarios);
-  }, [carregarUsuarios]);
+  }, [buscarUsuarios]);
 
   const usuariosFiltrados = useMemo(() => {
     return usuarios.filter(
@@ -136,7 +119,7 @@ export default function UsuariosPage() {
       try {
         await carregarUsuarios();
       } catch {
-        // O cadastro foi concluído, mas a lista não pôde ser atualizada.
+        // O cadastro foi concluído, mas a atualização da lista falhou.
       }
     } catch (error) {
       setErroModal(apiError(error));
