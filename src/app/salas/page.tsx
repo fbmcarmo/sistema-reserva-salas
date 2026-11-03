@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, type FormEvent } from "react";
@@ -378,6 +377,7 @@ export default function SalasPage() {
             <RoomCard
               key={sala.id}
               sala={sala}
+              onEdit={abrirFormulario}
               onDelete={abrirConfirmacaoExclusao}
             />
           ))}
