@@ -4,14 +4,13 @@ name: CI - Frontend
 on:
   push:
     branches:
-      - main
-      - master
-      - feature/ci
+      - "**"
 
   pull_request:
     branches:
-      - main
-      - master
+      - "**"
+
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -47,8 +46,7 @@ jobs:
       - name: Build do Next.js
         run: npm run build
 
-      
-      - name: Testes E2E
+      - name: Executar testes E2E com Cypress
         uses: cypress-io/github-action@v6
         with:
           install: false
@@ -56,7 +54,6 @@ jobs:
         env:
           CYPRESS_TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
           CYPRESS_TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
-        env:
           CYPRESS_baseUrl: https://sistema-reserva-salas-ten.vercel.app
 
       - name: Salvar evidências do Cypress

@@ -2,11 +2,15 @@ import { defineConfig } from "cypress";
 
 export default defineConfig({
   e2e: {
-    baseUrl:
-      process.env.CYPRESS_BASE_URL ||
-      "https://sistema-reserva-salas-ten.vercel.app",
+    baseUrl: "https://sistema-reserva-salas-ten.vercel.app",
 
-    viewportWidth: 1280,
-    viewportHeight: 720,
+    setupNodeEvents(on, config) {
+      // Mantenha aqui seus eventos já existentes.
+
+      config.env.TEST_EMAIL = process.env.CYPRESS_TEST_EMAIL;
+      config.env.TEST_PASSWORD = process.env.CYPRESS_TEST_PASSWORD;
+
+      return config;
+    },
   },
 });
