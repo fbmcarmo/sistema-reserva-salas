@@ -7,6 +7,7 @@ on:
       - main
       - master
       - feature/ci
+
   pull_request:
     branches:
       - main
@@ -46,41 +47,20 @@ jobs:
       - name: Build do Next.js
         run: npm run build
 
-      - name: Iniciar servidor Next.js
-        run: |
-          npm run start -- --hostname 127.0.0.1 --port 3000 > next.log 2>&1 &
-          echo $! > next.pid
-
-      - name: Aguardar servidor Next.js
-        run: |
-          for i in $(seq 1 30); do
-            if curl --fail --silent --output /dev/null http://127.0.0.1:3000; then
-              echo "Frontend iniciado!"
-              exit 0
-            fi
-
-            if ! kill -0 "$(cat next.pid)" 2>/dev/null; then
-              cat next.log
-              exit 1
-            fi
-
-            sleep 2
-          done
-
-          cat next.log
-          exit 1
-
-      - name: Executar testes Cypress
+      - name: Executar testes Cypress na Vercel
         uses: cypress-io/github-action@v6
         with:
           install: false
           command: npx cypress run
         env:
-          CYPRESS_baseUrl: http://127.0.0.1:3000
+          CYPRESS_baseUrl: https://sistema-reserva-salas-ten.vercel.app
 
-      - name: Exibir logs em caso de falha
+      - name: Salvar evidências do Cypress
         if: failure()
-        run: |
-          if [ -f next.log ]; then
-            cat next.log
-          fi
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-evidencias
+          path: |
+            cypress/screenshots
+            cypress/videos
+          if-no-files-found: ignore
