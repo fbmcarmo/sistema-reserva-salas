@@ -26,38 +26,38 @@ export function RoomCard({
   onDelete,
 }: RoomCardProps) {
   return (
-    <article className="group relative bg-card border border-border/80 hover:border-border rounded-2xl transition-all shadow-xs hover:shadow-md">
+    <article className="group relative flex h-56 w-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs transition-all hover:border-border hover:shadow-md">
       <Link
         href={`/salas/${sala.id}`}
-        className="block p-6 pr-24 cursor-pointer"
+        className="flex min-h-0 flex-1 flex-col p-6 pr-24"
       >
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-foreground tracking-tight group-hover:text-primary transition-colors">
+          <div className="min-w-0 flex-1">
+            <h2 className="line-clamp-2 text-xl font-bold tracking-tight text-foreground transition-colors group-hover:text-primary">
               {sala.nome}
             </h2>
 
             {sala.localizacao && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
                 {sala.localizacao}
               </p>
             )}
           </div>
 
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-accent text-accent-foreground whitespace-nowrap">
+          <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
             {sala.capacidade} pessoas
           </span>
         </div>
 
         {sala.descricao && (
-          <p className="text-xs text-muted-foreground/90 mt-5 leading-relaxed">
+          <p className="mt-5 line-clamp-3 overflow-hidden text-xs leading-relaxed text-muted-foreground/90">
             {sala.descricao}
           </p>
         )}
       </Link>
 
       {(onEdit || onDelete) && (
-        <div className="absolute top-5 right-4 flex items-center gap-1">
+        <div className="absolute right-4 top-5 flex items-center gap-1">
           {onEdit && (
             <button
               type="button"
@@ -69,9 +69,9 @@ export function RoomCard({
               }}
               aria-label={`Editar ${sala.nome}`}
               title={`Editar ${sala.nome}`}
-              className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
             >
-              <Pencil className="w-4 h-4" />
+              <Pencil className="h-4 w-4" />
             </button>
           )}
 
@@ -86,9 +86,9 @@ export function RoomCard({
               }}
               aria-label={`Excluir ${sala.nome}`}
               title={`Excluir ${sala.nome}`}
-              className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="h-4 w-4" />
             </button>
           )}
         </div>
